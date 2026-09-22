@@ -242,6 +242,11 @@ button{
 }
 .frame.peeking .still{ opacity:0; }
 
+/* pendant que son image voyage vers le centre, le cadre d'origine
+   laisse un trou : sinon on verrait la vignette en double */
+.frame.parti .media,
+.frame.parti .open{ visibility:hidden; }
+
 /* le bouton d'ouverture couvre toute l'image, sous le volet */
 .open{
   position:absolute; inset:0;
@@ -276,7 +281,7 @@ button{
   padding:clamp(14px, 3vw, 48px);
   background:rgba(15,22,29,.97);
   opacity:0;
-  transition:opacity .55s var(--glide);
+  transition:opacity .32s var(--glide);
 }
 .stage[hidden]{ display:none; }
 /* pendant le fondu de sortie la couche est encore là : sans ça elle
@@ -288,20 +293,21 @@ button{
   /* la largeur est plafonnée par la hauteur libre : le film tient toujours
      en entier, barre et infos comprises, sans bandes noires sur les côtés */
   width:min(1320px, 100%, calc((100vh - 210px) * 16 / 9));
-  transform:scale(.94) translateY(14px);
-  transition:transform .78s var(--glide);
 }
-.stage.on .stage-in{ transform:none; }
 
-/* les trois étages arrivent l'un après l'autre : l'image d'abord,
-   puis le titre, puis la barre. */
-.stage-in > *{ opacity:0; transition:opacity .6s var(--glide); }
-.stage.on .stage-in > *{ opacity:1; }
-.stage.on .screen{ transition-delay:.04s; }
-.stage.on .info{ transition-delay:.26s; }
-.stage.on .bar{ transition-delay:.36s; }
-/* à la fermeture tout repart ensemble, sans traîner */
-.stage:not(.on) .stage-in > *{ transition-delay:0s; transition-duration:.3s; }
+/* L'image ne surgit pas au centre : elle part de la vignette cliquée et
+   grandit jusqu'à sa place. Déplacement et échelle sont calculés en
+   JavaScript à partir des deux rectangles — c'est la seule façon d'aller
+   d'un élément de la grille vers un élément centré à l'écran.
+   Le titre et la barre, eux, arrivent en fondu une fois l'image posée. */
+.screen{ transform-origin:center center; will-change:transform; }
+
+.stage-in > .info,
+.stage-in > .bar{ opacity:0; transition:opacity .45s var(--glide); }
+.stage.on .info{ opacity:1; transition-delay:.42s; }
+.stage.on .bar{ opacity:1; transition-delay:.50s; }
+.stage:not(.on) .info,
+.stage:not(.on) .bar{ transition-delay:0s; transition-duration:.22s; }
 
 .screen{
   position:relative;
@@ -943,6 +949,45 @@ button{
   var vol     = stage.querySelector('.vol');
   var vfill   = stage.querySelector('.vfill');
   var pont    = stage.querySelector('.bridge');
+  var scr     = stage.querySelector('.screen');
+
+  var ALLER  = 620;          /* durée du voyage de la vignette vers le centre */
+  var RETOUR = 420;          /* et du chemin inverse */
+  var COURBE = 'cubic-bezier(.22,.68,.32,1)';
+
+  /* Même calcul dans les deux sens : on compare le rectangle de départ et
+     celui d'arrivée, on en tire un déplacement et une échelle. L'échelle est
+     prise sur la largeur seule, pour ne jamais déformer l'image même quand
+     les deux rectangles n'ont pas exactement le même format. */
+  function ecart(depuis, vers) {
+    return {
+      s:  depuis.width / vers.width,
+      dx: (depuis.left + depuis.width / 2) - (vers.left + vers.width / 2),
+      dy: (depuis.top + depuis.height / 2) - (vers.top + vers.height / 2)
+    };
+  }
+  function pose(e) {
+    return 'translate(' + e.dx.toFixed(1) + 'px,' + e.dy.toFixed(1) + 'px) scale(' + e.s.toFixed(4) + ')';
+  }
+
+  function grandirDepuis(depart) {
+    scr.style.transition = 'none';
+    scr.style.transform = 'none';
+    void scr.offsetWidth;                    /* on mesure sans transformation */
+    var arrivee = scr.getBoundingClientRect();
+    if (!arrivee.width || !depart.width) { return; }
+    scr.style.transform = pose(ecart(depart, arrivee));
+    void scr.offsetWidth;                    /* puis on relâche */
+    scr.style.transition = 'transform ' + ALLER + 'ms ' + COURBE;
+    scr.style.transform = 'none';
+  }
+
+  function retrecirVers(cible) {
+    var actuelle = scr.getBoundingClientRect();
+    if (!actuelle.width || !cible.width) { return; }
+    scr.style.transition = 'transform ' + RETOUR + 'ms ' + COURBE;
+    scr.style.transform = pose(ecart(cible, actuelle));
+  }
 
   var coarse  = window.matchMedia('(pointer: coarse)');
   var lastVol = 1;
@@ -1019,6 +1064,10 @@ button{
   /* ---------- ouvrir, fermer ---------- */
 
   function bringForward(frame) {
+    /* un cadre resté masqué par une ouverture précédente */
+    Array.prototype.forEach.call(document.querySelectorAll('.frame.parti'),
+      function (f) { if (f !== frame) { f.classList.remove('parti'); } });
+
     current = frame;
 
     var loop = frame.querySelector('.loop');
@@ -1050,12 +1099,16 @@ button{
     vid.volume = lastVol;
     paintVol();
 
+    /* d'où part l'image : la vignette qu'on vient de cliquer */
+    var depart = frame.getBoundingClientRect();
+
     stage.hidden = false;
     lock(true);
     majDisposition();
-    void stage.offsetWidth;          /* on force le calcul : sinon la
-                                        transition part parfois déjà finie */
+    void stage.offsetWidth;
     stage.classList.add('on');
+    grandirDepuis(depart);
+    frame.classList.add('parti');
 
     /* ---------- l'enchaînement d'ouverture ----------
        1. la fenêtre s'agrandit (0,78 s)
@@ -1078,11 +1131,11 @@ button{
       });
     }
 
-    Promise.all([souffle(780), premiereImage()])
+    Promise.all([souffle(ALLER + 30), premiereImage()])
       .then(function () {
         if (!encore()) { return; }
         pont.classList.add('gone');          /* le fondu, 0,55 s */
-        return souffle(600);
+        return souffle(580);
       })
       .then(function () {
         if (!encore()) { return; }
@@ -1114,20 +1167,26 @@ button{
     /* le son se coupe tout de suite, mais l'image reste le temps du fondu :
        vider la source ici ferait virer le film au noir avant de disparaître */
     vid.pause();
-    stage.classList.remove('on');
     stage.classList.remove('idle');
     clearTimeout(minuteur);
+
+    /* l'image refait le chemin en sens inverse, vers sa vignette */
+    retrecirVers(frame.getBoundingClientRect());
+    stage.classList.remove('on');
     lock(false);
 
     window.setTimeout(function () {
+      frame.classList.remove('parti');
       if (current) { return; }       /* un autre film a été ouvert entre-temps */
       vid.removeAttribute('src');
       vid.removeAttribute('poster');
       vid.load();
       pont.classList.remove('gone');   /* prête pour la prochaine ouverture */
       libereLePont();
+      scr.style.transition = 'none';
+      scr.style.transform = 'none';
       stage.hidden = true;
-    }, 460);
+    }, RETOUR + 40);
 
     var opener = frame.querySelector('.open');
     if (opener) { opener.focus({ preventScroll: true }); }
