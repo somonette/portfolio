@@ -318,6 +318,21 @@ button{
   background:#000;
 }
 
+/* L'image d'attente posée par-dessus la vidéo. Elle tient la place pendant
+   que la fenêtre s'agrandit, puis s'efface vers la première image du film.
+   Sans elle on passait sans transition de l'aperçu au film. */
+.screen .bridge{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:contain;
+  display:block;
+  z-index:1;
+  pointer-events:none;
+  opacity:1;
+  transition:opacity .55s var(--glide);
+}
+.screen .bridge.gone{ opacity:0; }
+
 /* Sur la couche « en avant » la barre n'est plus un bloc plein posé sur
    l'image : elle est détachée de quelques pixels et flotte sur le fond,
    en clair sur sombre comme le reste. */
@@ -840,7 +855,10 @@ button{
       <span class="who"><span class="idx"></span><span class="client"></span></span>
       <span class="svc"></span>
     </div>
-    <div class="screen"><video class="full" playsinline preload="auto"></video></div>
+    <div class="screen">
+      <video class="full" playsinline preload="auto"></video>
+      <img class="bridge" alt="" aria-hidden="true">
+    </div>
     <div class="bar">
       <div class="track" role="slider" tabindex="0" aria-label="Timeline">
         <div class="rail"></div><div class="load"></div><div class="fill"></div>
@@ -924,6 +942,7 @@ button{
   var iSvc    = stage.querySelector('.info .svc');
   var vol     = stage.querySelector('.vol');
   var vfill   = stage.querySelector('.vfill');
+  var pont    = stage.querySelector('.bridge');
 
   var coarse  = window.matchMedia('(pointer: coarse)');
   var lastVol = 1;
@@ -944,6 +963,31 @@ button{
     if (!isFinite(sec) || sec < 0) { sec = 0; }
     var m = Math.floor(sec / 60), r = Math.floor(sec % 60);
     return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  /* Les films n'ont pas tous le même format : League of Legends est en
+     2.35:1 alors que son image d'attente est en 16/9. Sans ça le fondu
+     ferait un saut de cadrage. On cale donc l'image d'attente exactement
+     sur le rectangle occupé par le film. */
+  function caleLePont() {
+    var vw = vid.videoWidth, vh = vid.videoHeight;
+    if (!vw || !vh) { return; }
+    /* offsetWidth et pas getBoundingClientRect : au moment où les
+       métadonnées arrivent, la fenêtre est encore en train de s'agrandir.
+       Le rectangle visuel serait donc mesuré à l'échelle intermédiaire,
+       alors que la taille de mise en page, elle, est déjà la bonne. */
+    var bw = vid.offsetWidth, bh = vid.offsetHeight;
+    if (!bw || !bh) { return; }
+    var k = Math.min(bw / vw, bh / vh);
+    var w = vw * k, h = vh * k;
+    pont.style.width  = w + 'px';
+    pont.style.height = h + 'px';
+    pont.style.left   = ((bw - w) / 2) + 'px';
+    pont.style.top    = ((bh - h) / 2) + 'px';
+    pont.style.objectFit = 'cover';
+  }
+  function libereLePont() {
+    pont.removeAttribute('style');
   }
 
   function paintVol() {
@@ -993,10 +1037,14 @@ button{
     load.style.width = '0%';
     tRead.textContent = '0:00 / ' + (frame.dataset.len || '0:00');
 
-    /* l'image fixe du cadre sert d'affiche : le film s'ouvre sur une image
-       au lieu d'un rectangle noir le temps que la vidéo se décode */
+    /* l'image fixe du cadre sert d'affiche et d'image de transition */
     var still = frame.querySelector('.still');
-    vid.poster = still ? (still.currentSrc || still.src) : '';
+    var visuel = still ? (still.currentSrc || still.src) : '';
+    vid.poster = visuel;
+    pont.src = visuel;
+    pont.classList.remove('gone');
+    libereLePont();
+    pp.textContent = 'Play';
     vid.src = frame.dataset.film;
     vid.muted = false;
     vid.volume = lastVol;
@@ -1009,14 +1057,49 @@ button{
                                         transition part parfois déjà finie */
     stage.classList.add('on');
 
-    var pr = vid.play();
-    if (pr && pr.catch) {
-      pr.catch(function () {
-        vid.muted = true;
-        paintVol();
-        vid.play().catch(function () {});
+    /* ---------- l'enchaînement d'ouverture ----------
+       1. la fenêtre s'agrandit (0,78 s)
+       2. pendant ce temps la vidéo charge sa première image
+       3. fondu de l'image d'attente vers cette première image
+       4. un souffle, puis la lecture démarre
+       Chaque étape vérifie qu'on n'a pas changé de film entre-temps. */
+
+    var ceFilm = frame;
+    function encore() { return current === ceFilm; }
+    function souffle(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    function premiereImage() {
+      return new Promise(function (r) {
+        if (vid.readyState >= 2) { r(); return; }
+        var fait = false;
+        function ok() { if (!fait) { fait = true; r(); } }
+        vid.addEventListener('loadeddata', ok, { once: true });
+        setTimeout(ok, 4000);      /* réseau lent : on n'attend pas sans fin */
       });
     }
+
+    Promise.all([souffle(780), premiereImage()])
+      .then(function () {
+        if (!encore()) { return; }
+        pont.classList.add('gone');          /* le fondu, 0,55 s */
+        return souffle(600);
+      })
+      .then(function () {
+        if (!encore()) { return; }
+        return souffle(140);                 /* le petit temps avant la lecture */
+      })
+      .then(function () {
+        if (!encore()) { return; }
+        var pr = vid.play();
+        if (pr && pr.catch) {
+          pr.catch(function () {
+            vid.muted = true;
+            paintVol();
+            vid.play().catch(function () {});
+          });
+        }
+      });
+
     shut.focus({ preventScroll: true });
   }
 
@@ -1041,6 +1124,8 @@ button{
       vid.removeAttribute('src');
       vid.removeAttribute('poster');
       vid.load();
+      pont.classList.remove('gone');   /* prête pour la prochaine ouverture */
+      libereLePont();
       stage.hidden = true;
     }, 460);
 
@@ -1050,21 +1135,38 @@ button{
 
   /* ---------- plein écran ---------- */
 
+  /* Deux chemins distincts, parce qu'ils s'excluent :
+       - le bouton Full force la rotation, donc il VERROUILLE le paysage ;
+         sans verrou l'écran retomberait aussitôt en portrait, le téléphone
+         étant physiquement tenu droit ;
+       - une rotation faite à la main n'a pas besoin de verrou, et surtout
+         un verrou empêcherait de revenir en portrait pour ressortir. */
+  var verrouille = false;
+
   function tourneEnPaysage() {
-    if (!coarse.matches) { return; }             /* seulement sur un appareil tactile */
+    if (!coarse.matches) { return; }
     var o = screen.orientation;
-    if (o && o.lock) { o.lock('landscape').catch(function () {}); }
+    if (o && o.lock) {
+      o.lock('landscape').then(function () { verrouille = true; }).catch(function () {});
+    }
   }
   function libereOrientation() {
+    verrouille = false;
     var o = screen.orientation;
     if (o && o.unlock) { try { o.unlock(); } catch (e) {} }
   }
 
-  function screenful() {
-    if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); return; }
+  function screenful(forcerPaysage) {
+    if (document.fullscreenElement) {
+      libereOrientation();
+      document.exitFullscreen().catch(function () {});
+      return;
+    }
     if (stage.requestFullscreen) {
       /* la rotation ne peut être demandée qu'une fois en plein écran */
-      stage.requestFullscreen().then(tourneEnPaysage).catch(function () {
+      stage.requestFullscreen().then(function () {
+        if (forcerPaysage) { tourneEnPaysage(); }
+      }).catch(function () {
         if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); }
       });
     } else if (vid.webkitEnterFullscreen) {
@@ -1101,7 +1203,10 @@ button{
 
   if (bas.addEventListener) { bas.addEventListener('change', majDisposition); }
   else if (bas.addListener) { bas.addListener(majDisposition); }
-  window.addEventListener('resize', majDisposition);
+  window.addEventListener('resize', function () {
+    majDisposition();
+    if (current) { caleLePont(); }
+  });
 
   document.addEventListener('fullscreenchange', function () {
     if (!document.fullscreenElement) { libereOrientation(); }
@@ -1113,9 +1218,15 @@ button{
      le plein écran : si c'est refusé, on ne fait rien de plus. */
   var paysage = window.matchMedia('(orientation: landscape)');
   function auQuartDeTour() {
-    if (!current || document.fullscreenElement) { return; }
-    if (!coarse.matches || !paysage.matches) { return; }
-    screenful();
+    if (!current || !coarse.matches) { return; }
+    if (paysage.matches) {
+      /* on tourne en paysage : on passe en grand, sans verrou pour
+         pouvoir revenir en arrière en tournant dans l'autre sens */
+      if (!document.fullscreenElement) { screenful(false); }
+    } else if (document.fullscreenElement && !verrouille) {
+      /* et on refait le chemin inverse en revenant au portrait */
+      document.exitFullscreen().catch(function () {});
+    }
   }
   if (paysage.addEventListener) { paysage.addEventListener('change', auQuartDeTour); }
   else if (paysage.addListener) { paysage.addListener(auQuartDeTour); }
@@ -1133,11 +1244,11 @@ button{
   });
   vid.addEventListener('dblclick', function () {
     if (tap) { window.clearTimeout(tap); tap = null; }
-    screenful();
+    screenful(true);
   });
 
   pp.addEventListener('click', toggle);
-  fsBtn.addEventListener('click', screenful);
+  fsBtn.addEventListener('click', function () { screenful(true); });
   shut.addEventListener('click', sendBack);
   snd.addEventListener('click', function () {
     if (vid.muted || vid.volume === 0) { setVol(lastVol || 1); }
@@ -1178,7 +1289,7 @@ button{
   vid.addEventListener('pause', function () { pp.textContent = 'Play'; });
   vid.addEventListener('ended', function () { pp.textContent = 'Replay'; });
   vid.addEventListener('timeupdate', paint);
-  vid.addEventListener('loadedmetadata', paint);
+  vid.addEventListener('loadedmetadata', function () { paint(); caleLePont(); });
   vid.addEventListener('progress', function () {
     var d = vid.duration || 0;
     if (d && vid.buffered.length) {
@@ -1255,7 +1366,7 @@ button{
     if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); vid.currentTime = Math.min(vid.currentTime + 5, vid.duration || 0); }
     else if (e.key === 'ArrowLeft')  { e.preventDefault(); vid.currentTime = Math.max(vid.currentTime - 5, 0); }
-    else if (e.key === 'f') { screenful(); }
+    else if (e.key === 'f') { screenful(true); }
     else if (e.key === 'm') {
       if (vid.muted || vid.volume === 0) { setVol(lastVol || 1); }
       else { vid.muted = true; paintVol(); }
