@@ -375,6 +375,42 @@ button{
   .stage .info .svc{ text-align:left; }
 }
 
+/* ------------------------------------------------------------------
+   DISPOSITION À PLAT
+   En plein écran, et sur un téléphone tourné en paysage, empiler
+   titre / image / barre ne marche pas : la hauteur disponible est si
+   faible qu'il ne reste presque rien pour l'image. Dans ces deux cas
+   l'image prend toute la place et les deux autres passent par-dessus.
+   ------------------------------------------------------------------ */
+
+.stage.flat{ padding:0; }
+.stage.flat .stage-in{ width:100%; height:100%; max-width:none; }
+.stage.flat .screen{ width:100%; height:100%; aspect-ratio:auto; }
+
+.stage.flat .info,
+.stage.flat .bar{
+  position:absolute;
+  left:0; right:0;
+  z-index:2;
+  margin:0;
+  transition:opacity .35s var(--ease);
+}
+.stage.flat .info{
+  top:0;
+  padding:clamp(11px, 2vw, 22px) clamp(15px, 3vw, 30px);
+  /* un voile, sinon le texte devient illisible sur une image claire */
+  background:linear-gradient(rgba(15,22,29,.74), rgba(15,22,29,0));
+}
+.stage.flat .bar{
+  bottom:0;
+  padding:0 clamp(15px, 3vw, 30px) clamp(10px, 1.8vw, 18px);
+  background:linear-gradient(rgba(15,22,29,0), rgba(15,22,29,.74));
+}
+
+/* les commandes s'effacent quand on ne touche plus à rien */
+.stage.flat.idle .info,
+.stage.flat.idle .bar{ opacity:0; transition-delay:0s; }
+
 /* zone de prise large, rail fin : facile à attraper sans être lourd */
 .track{
   position:relative;
@@ -968,6 +1004,7 @@ button{
 
     stage.hidden = false;
     lock(true);
+    majDisposition();
     void stage.offsetWidth;          /* on force le calcul : sinon la
                                         transition part parfois déjà finie */
     stage.classList.add('on');
@@ -995,6 +1032,8 @@ button{
        vider la source ici ferait virer le film au noir avant de disparaître */
     vid.pause();
     stage.classList.remove('on');
+    stage.classList.remove('idle');
+    clearTimeout(minuteur);
     lock(false);
 
     window.setTimeout(function () {
@@ -1033,8 +1072,40 @@ button{
     }
   }
 
+  /* ---------- disposition à plat ---------- */
+
+  var bas = window.matchMedia('(max-height: 560px) and (orientation: landscape)');
+
+  function majDisposition() {
+    var plat = !!document.fullscreenElement || bas.matches;
+    stage.classList.toggle('flat', plat);
+    if (!plat) { stage.classList.remove('idle'); clearTimeout(minuteur); }
+    else { reveil(); }
+  }
+
+  var minuteur = null;
+  function reveil() {
+    stage.classList.remove('idle');
+    clearTimeout(minuteur);
+    if (stage.classList.contains('flat') && !vid.paused) {
+      minuteur = setTimeout(function () { stage.classList.add('idle'); }, 2800);
+    }
+  }
+  stage.addEventListener('pointermove', reveil);
+  stage.addEventListener('pointerdown', reveil);
+  vid.addEventListener('play', reveil);
+  vid.addEventListener('pause', function () {
+    clearTimeout(minuteur);
+    stage.classList.remove('idle');
+  });
+
+  if (bas.addEventListener) { bas.addEventListener('change', majDisposition); }
+  else if (bas.addListener) { bas.addListener(majDisposition); }
+  window.addEventListener('resize', majDisposition);
+
   document.addEventListener('fullscreenchange', function () {
     if (!document.fullscreenElement) { libereOrientation(); }
+    majDisposition();
   });
 
   /* Tourner le téléphone en paysage pendant qu'un film est ouvert le passe
