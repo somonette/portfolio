@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Léo Convercy — Sound Design &amp; Music</title>
+<meta name="description" content="Léo Convercy — composer and sound designer for visual media. Tokyo, worldwide. Advertising, film, fashion and beauty.">
+<meta property="og:title" content="Léo Convercy — Sound Design &amp; Music">
+<meta property="og:description" content="Composer and sound designer for visual media. Tokyo, worldwide.">
+<meta property="og:image" content="media/posters/dior.jpg">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#E2E7EB">
+
+<script>document.documentElement.classList.add('js');</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================================
+   LÉO CONVERCY — SOUND DESIGN & MUSIC
+
+   Les films sont hébergés ici, dans media/. Rien ne part vers YouTube.
+     media/loops/    boucles muettes de 6 s, lancées au survol de l'écran
+     media/films/    les films complets, avec le son
+     media/posters/  l'image fixe affichée avant que la boucle démarre
+   Pour modifier les films : voir « LES FILMS » dans le <body>.
+   ========================================================================== */
+
+:root{
+  /* Palette « gris bleuté » : un gris franchement tiré vers le bleu.
+     Il refroidit la page, ce qui fait ressortir les rouges et les roses
+     des films par contraste. --ink sert aussi de fond aux cadres vidéo. */
+  --bg:     #E2E7EB;
+  --ink:    #0F161D;
+  --mid:    rgba(15,22,29,.55);
+  --soft:   rgba(15,22,29,.34);
+  --line:   rgba(15,22,29,.16);
+  --line-2: rgba(15,22,29,.30);
+
+  --mast:   clamp(52px, 7vh, 66px);
+  --pad:    clamp(16px, 3.6vw, 52px);
+  --maxw:   1120px;
+
+  --ease:   cubic-bezier(.2,.6,.3,1);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; }
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Courier Prime", "Courier New", Courier, monospace;
+  font-size:14px;
+  line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+}
+body.locked{ overflow:hidden; }
+
+img{ display:block; max-width:100%; }
+a{ color:inherit; text-decoration:none; }
+/* les navigateurs remettent ces deux propriétés à zéro sur les boutons :
+   on les fait hériter pour que les libellés suivent le style du site. */
+button{
+  font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer;
+  text-transform:inherit; letter-spacing:inherit;
+}
+:focus-visible{ outline:1px solid var(--ink); outline-offset:3px; }
+
+.shell{
+  width:min(var(--maxw), 100% - var(--pad) * 2);
+  margin-inline:auto;
+}
+
+/* Le seul style de « petit texte » du site. Tout en découle. */
+.mono{
+  font-size:clamp(10px, .95vw, 12px);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  line-height:1.6;
+}
+
+/* ------------------------------------------------------------------ MASTHEAD */
+
+.mast{
+  position:fixed;
+  inset:0 0 auto 0;
+  z-index:40;
+  height:var(--mast);
+  background:var(--bg);
+  display:flex;
+  align-items:center;
+}
+.mast .shell{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+}
+.mark{
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  font-size:clamp(11px, 1.1vw, 13px);
+  white-space:nowrap;
+}
+
+/* l'heure de Tokyo : les secondes défilent, c'est ce qui prouve
+   qu'elle est réellement à l'heure et pas décorative. */
+.clock{
+  color:var(--mid);
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+.clock[hidden]{ display:none; }
+@media (max-width:620px){ .clock{ display:none; } }
+
+.nav{ display:flex; gap:clamp(18px, 2.4vw, 36px); }
+.nav a{ position:relative; color:var(--mid); transition:color .35s var(--ease); }
+.nav a::after{
+  content:"";
+  position:absolute; left:0; right:0; bottom:-4px;
+  height:1px; background:currentColor;
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .4s var(--ease);
+}
+.nav a:hover{ color:var(--ink); }
+.nav a:hover::after{ transform:scaleX(1); }
+
+.toggle{ display:none; letter-spacing:.16em; text-transform:uppercase; }
+
+@media (max-width:719px){
+  .nav{ display:none; }
+  .toggle{ display:block; }
+}
+
+/* ------------------------------------------------------------------ MENU MOBILE */
+
+.sheet{
+  position:fixed; inset:0; z-index:50;
+  background:var(--bg);
+  padding:var(--mast) var(--pad) var(--pad);
+  display:flex; flex-direction:column; justify-content:center;
+  opacity:0; visibility:hidden;
+  transition:opacity .4s var(--ease), visibility .4s;
+}
+.sheet[data-open="true"]{ opacity:1; visibility:visible; }
+.sheet ol{
+  list-style:none; margin:0; padding:0;
+  counter-reset:s;
+  display:flex; flex-direction:column; gap:6px;
+}
+.sheet li{ border-top:1px solid var(--line); }
+.sheet li:last-child{ border-bottom:1px solid var(--line); }
+.sheet a{
+  display:flex; align-items:baseline; gap:18px;
+  padding:22px 0;
+  font-size:22px; letter-spacing:.06em;
+}
+.sheet a::before{
+  counter-increment:s;
+  content:"0" counter(s);
+  font-size:11px; letter-spacing:.14em; color:var(--soft);
+}
+.sheet .foot{
+  position:absolute; left:var(--pad); right:var(--pad); bottom:var(--pad);
+  color:var(--soft);
+  display:flex; justify-content:space-between; gap:16px;
+}
+
+/* ------------------------------------------------------------------ INTRO */
+
+.intro{
+  padding-top:calc(var(--mast) + clamp(26px, 6vh, 64px));
+  padding-bottom:clamp(20px, 3.5vh, 38px);
+}
+.intro .shell{
+  display:flex; justify-content:space-between; align-items:flex-end;
+  gap:12px 32px; flex-wrap:wrap;
+  padding-bottom:clamp(14px, 2vh, 22px);
+  border-bottom:1px solid var(--line);
+}
+.intro .role{ letter-spacing:.16em; text-transform:uppercase; font-size:clamp(10px, 1vw, 12.5px); }
+.intro .where{ color:var(--mid); }
+
+/* ------------------------------------------------------------------ LES FILMS */
+
+.work{ display:flex; flex-direction:column; }
+
+.film{ padding:clamp(34px, 6vh, 74px) 0; }
+.film + .film{ border-top:1px solid var(--line); }
+
+.frame{
+  position:relative;
+  width:100%;
+  aspect-ratio:16 / 9;
+  overflow:hidden;
+  background:var(--ink);
+}
+.frame .media{
+  position:absolute; inset:0;
+  overflow:hidden;
+}
+
+/* L'image fixe est posée PAR-DESSUS la boucle et s'efface au survol.
+   Comme ça l'image au repos est toujours exactement celle qu'on a choisie,
+   et la boucle n'a pas besoin d'être rechargée à chaque fois.
+   Les deux débordent du cadre pour pouvoir dériver sans laisser de bord. */
+.frame .loop,
+.frame .still{
+  position:absolute;
+  left:0; top:-12px;
+  width:100%; height:calc(100% + 24px);
+  object-fit:cover;
+  display:block;
+  transform:translate3d(0, var(--dy, 0px), 0);
+}
+.frame .still{
+  z-index:1;
+  transition:opacity .4s var(--ease);
+}
+.frame.peeking .still{ opacity:0; }
+
+/* le bouton d'ouverture couvre toute l'image, sous le volet */
+.open{
+  position:absolute; inset:0;
+  z-index:1;
+  display:block;
+  width:100%;
+}
+/* pastille « play » : un rectangle net, pas un bouton rond générique */
+.cue{
+  position:absolute;
+  left:0; bottom:0;
+  background:var(--bg);
+  color:var(--ink);
+  padding:9px clamp(12px, 1.4vw, 18px);
+  display:flex; align-items:center; gap:9px;
+  letter-spacing:.18em; text-transform:uppercase;
+  font-size:clamp(9.5px, .9vw, 11px);
+  white-space:nowrap;
+  transition:background .4s var(--ease), color .4s var(--ease);
+}
+.cue svg{ width:7px; fill:currentColor; flex:none; }
+.open:hover .cue,
+.open:focus-visible .cue{ background:var(--ink); color:var(--bg); }
+
+/* ------------------------------------------------------------------ LECTEUR */
+
+/* Trois états : le cadre au repos, le film « en avant » par-dessus la page,
+   et le plein écran. Le lecteur vit dans cette couche, pas dans le cadre. */
+.stage{
+  position:fixed; inset:0; z-index:60;
+  display:grid; place-items:center;
+  padding:clamp(14px, 3vw, 48px);
+  background:rgba(15,22,29,.94);
+  opacity:0;
+  transition:opacity .25s var(--ease);
+}
+.stage[hidden]{ display:none; }
+.stage.on{ opacity:1; }
+
+.stage-in{
+  /* la largeur est plafonnée par la hauteur libre : le film tient toujours
+     en entier, barre et infos comprises, sans bandes noires sur les côtés */
+  width:min(1320px, 100%, calc((100vh - 190px) * 16 / 9));
+  transform:scale(.975);
+  transition:transform .32s var(--ease);
+}
+.stage.on .stage-in{ transform:none; }
+
+.screen{
+  position:relative;
+  width:100%;
+  aspect-ratio:16 / 9;
+  background:#000;
+}
+.screen .full{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:contain;
+  display:block;
+  cursor:pointer;
+  background:#000;
+}
+
+.bar{ background:var(--bg); color:var(--ink); }
+
+.stage .info{
+  margin-top:clamp(10px, 1.4vw, 16px);
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:4px 26px; flex-wrap:wrap;
+  color:var(--bg);
+}
+.stage .info .who{ display:flex; align-items:baseline; gap:clamp(12px, 1.8vw, 26px); }
+.stage .info .idx{ color:rgba(226,231,235,.45); letter-spacing:.14em; font-size:clamp(9.5px, .9vw, 11px); }
+.stage .info .client{ letter-spacing:.17em; text-transform:uppercase; font-size:clamp(12px, 1.3vw, 16px); }
+.stage .info .svc{ color:rgba(226,231,235,.62); text-align:right; }
+@media (max-width:639px){
+  .stage .info{ flex-direction:column; align-items:flex-start; gap:2px; }
+  .stage .info .svc{ text-align:left; }
+}
+
+/* zone de prise large, rail fin : facile à attraper sans être lourd */
+.track{
+  position:relative;
+  height:24px;
+  cursor:pointer;
+  touch-action:none;
+}
+.track .rail,
+.track .load,
+.track .fill{
+  position:absolute;
+  left:0; top:11px;
+  height:2px;
+  transition:height .18s var(--ease), top .18s var(--ease);
+}
+.track .rail{ right:0; background:var(--line); }
+.track .load{ width:0; background:var(--line-2); }
+.track .fill{ width:0; background:var(--ink); }
+
+/* la poignée : un petit carré, pas une pastille ronde */
+.track .grip{
+  position:absolute;
+  top:7px; left:0;
+  width:2px; height:10px;
+  background:var(--ink);
+  transform:translateX(-1px);
+  opacity:0;
+  transition:opacity .18s var(--ease), height .18s var(--ease), top .18s var(--ease);
+}
+.track:hover .rail, .track:hover .load, .track:hover .fill,
+.track.dragging .rail, .track.dragging .load, .track.dragging .fill{
+  height:4px; top:10px;
+}
+.track:hover .grip, .track.dragging .grip{
+  opacity:1; height:14px; top:5px;
+}
+
+/* l'heure visée pendant qu'on fait glisser */
+.track .ghost{
+  position:absolute;
+  bottom:calc(100% + 2px);
+  transform:translateX(-50%);
+  background:var(--ink); color:var(--bg);
+  padding:3px 7px;
+  font-variant-numeric:tabular-nums;
+  opacity:0; pointer-events:none;
+  transition:opacity .18s var(--ease);
+  white-space:nowrap;
+}
+.track:hover .ghost, .track.dragging .ghost{ opacity:1; }
+
+.row{
+  display:flex; align-items:center;
+  gap:clamp(9px, 1.5vw, 20px);
+  padding:0 clamp(11px, 1.4vw, 18px) 9px;
+  flex-wrap:wrap;
+}
+.row .sp{ flex:1 1 auto; min-width:0; }
+.row button{ position:relative; white-space:nowrap; }
+.row button::after{
+  content:"";
+  position:absolute; left:0; right:0; bottom:-3px;
+  height:1px; background:currentColor;
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .35s var(--ease);
+}
+.row button:hover::after{ transform:scaleX(1); }
+.row .time{ color:var(--mid); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+/* ------------------------------------------------------------------ CRÉDITS */
+
+.credit{
+  margin-top:clamp(14px, 1.8vw, 22px);
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:6px 28px; flex-wrap:wrap;
+}
+.credit .who{ display:flex; align-items:baseline; gap:clamp(12px, 1.8vw, 26px); }
+.credit .idx{ color:var(--soft); letter-spacing:.14em; font-size:clamp(9.5px, .9vw, 11px); }
+.credit .client{
+  letter-spacing:.17em; text-transform:uppercase;
+  font-size:clamp(12px, 1.3vw, 16px);
+}
+.credit .svc{ color:var(--mid); text-align:right; }
+
+@media (max-width:639px){
+  .credit{ flex-direction:column; align-items:flex-start; gap:3px; }
+  .credit .svc{ text-align:left; }
+}
+
+/* ------------------------------------------------------------------ DEUX COLONNES */
+
+.split{
+  border-top:1px solid var(--line);
+  padding:clamp(48px, 9vh, 108px) 0;
+}
+.split .shell{
+  display:grid;
+  grid-template-columns:minmax(96px, 16%) minmax(0, 1fr);
+  gap:clamp(20px, 3vw, 56px);
+  align-items:start;
+}
+.split h2{
+  margin:0;
+  font-weight:400;
+  color:var(--soft);
+  letter-spacing:.16em; text-transform:uppercase;
+  font-size:clamp(10px, .95vw, 12px);
+}
+.split .body{ max-width:58ch; }
+.split p{
+  margin:0;
+  font-size:clamp(13.5px, 1.15vw, 15px);
+  line-height:2.1;
+}
+.split p + p{ margin-top:1.4em; }
+
+@media (max-width:719px){
+  .split .shell{ grid-template-columns:1fr; gap:18px; }
+}
+
+.mail{
+  display:inline-block;
+  font-size:clamp(15px, 1.9vw, 24px);
+  line-height:1.5;
+  position:relative;
+  word-break:break-word;
+}
+.mail::after{
+  content:"";
+  position:absolute; left:0; right:0; bottom:.04em;
+  height:1px; background:currentColor;
+  transform:scaleX(1); transform-origin:right;
+  transition:transform .45s var(--ease);
+}
+.mail:hover::after{ transform:scaleX(0); }
+
+.also{
+  margin-top:clamp(18px, 2.4vh, 28px);
+  display:flex; flex-wrap:wrap; gap:8px 26px;
+  color:var(--mid);
+}
+.also a{ transition:color .35s var(--ease); }
+.also a:hover{ color:var(--ink); }
+
+.note{ margin-top:clamp(20px, 3vh, 34px) !important; color:var(--mid); }
+
+/* ------------------------------------------------------------------ PIED */
+
+.foot{ border-top:1px solid var(--line); }
+.foot .shell{
+  padding:clamp(18px, 3vh, 28px) 0 clamp(22px, 4vh, 34px);
+  display:flex; justify-content:space-between; gap:8px 24px; flex-wrap:wrap;
+  color:var(--soft);
+}
+
+/* ------------------------------------------------------------------ APPARITION
+
+   Une seule règle pour tout le texte : 9 px de décalage, jamais de flou
+   (sur du Courier à 12 px le flou fait baver les lettres), et un écart de
+   60 ms d'une ligne à l'autre.
+   ------------------------------------------------------------------ */
+
+.js .intro .role,
+.js .intro .where,
+.js .credit .who,
+.js .credit .svc,
+.js .split h2,
+.js .split .body > *{
+  opacity:0;
+  transform:translateY(9px);
+  transition:opacity .75s var(--ease), transform .75s var(--ease);
+}
+
+/* Ces sélecteurs sont volontairement aussi précis que ceux qui masquent
+   au-dessus : avec un simple « .on .role » la règle de masquage gagnait en
+   spécificité et la ligne d'intro ne réapparaissait jamais. */
+.intro.on .role,
+.intro.on .where,
+.film.on .credit .who,
+.film.on .credit .svc,
+.split.on h2,
+.split.on .body > *{
+  opacity:1;
+  transform:none;
+}
+
+.intro.on .role{ transition-delay:.04s; }
+.intro.on .where{ transition-delay:.10s; }
+
+.film.on .credit .who{ transition-delay:.06s; }
+.film.on .credit .svc{ transition-delay:.12s; }
+
+.split.on h2{ transition-delay:.04s; }
+.split.on .body > *:nth-child(1){ transition-delay:.10s; }
+.split.on .body > *:nth-child(2){ transition-delay:.16s; }
+.split.on .body > *:nth-child(3){ transition-delay:.22s; }
+.split.on .body > *:nth-child(4){ transition-delay:.28s; }
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{ transition-duration:.01ms !important; }
+  .js .intro .role, .js .intro .where,
+  .js .credit .who, .js .credit .svc,
+  .js .split h2, .js .split .body > *{ opacity:1; transform:none; }
+  .frame .loop{ transform:none; }
+}
+</style>
+</head>
+
+<body>
+
+<header class="mast">
+  <div class="shell">
+    <a href="#top" class="mark">Léo Convercy</a>
+    <span class="clock mono" id="clock" hidden>Tokyo <time id="clockTime">--:--:--</time></span>
+    <nav class="nav mono" aria-label="Sections">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <button class="toggle mono" id="toggle" aria-expanded="false" aria-controls="sheet">Menu</button>
+  </div>
+</header>
+
+<nav class="sheet" id="sheet" data-open="false" aria-hidden="true" aria-label="Menu">
+  <ol>
+    <li><a href="#work" data-jump>Work</a></li>
+    <li><a href="#about" data-jump>About</a></li>
+    <li><a href="#contact" data-jump>Contact</a></li>
+  </ol>
+  <div class="foot mono">
+    <span>Sound design &amp; music</span>
+    <span>Tokyo</span>
+  </div>
+</nav>
+
+<main id="top">
+
+  <!-- ------------------------------------------------------------- INTRO -->
+  <section class="intro" id="intro">
+    <div class="shell">
+      <span class="role">Composer &amp; sound designer for visual media</span>
+      <span class="where mono">Based in Tokyo — Working worldwide</span>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- LES FILMS
+       Un film = un <article class="film">. Pour en ajouter un :
+         1. déposer le film complet dans media/films/, une boucle muette de
+            6 s dans media/loops/ et une image fixe dans media/posters/,
+            tous trois sous le même nom ;
+         2. copier un bloc <article> entier et y remplacer les trois chemins
+            media/…, la durée affichée dans data-length et dans la pastille,
+            le numéro, le client et la prestation.
+       Retirer un film : supprimer son bloc, puis renuméroter.
+       L'ordre affiché est l'ordre des blocs.
+
+       Les boucles sont muettes et ne se chargent qu'en approchant de
+       l'écran ; elles se mettent en pause dès qu'elles en sortent. Un clic
+       remplace la boucle par le film complet avec le son, dans le même
+       cadre. Un seul film peut tourner à la fois.
+  ------------------------------------------------------------------------- -->
+  <section class="work shell" id="work">
+
+    <article class="film">
+      <div class="frame" data-film="media/films/dior.mp4" data-title="Dior" data-index="01" data-svc="Sound redesign, original music" data-len="0:20">
+        <div class="media">
+          <video class="loop" src="media/loops/dior.mp4"
+                 muted loop playsinline preload="none" aria-hidden="true"></video>
+          <img class="still" src="https://img.youtube.com/vi/5P-vxflLE0Q/maxresdefault.jpg"
+               alt="" loading="lazy" decoding="async"
+               data-fb1="https://img.youtube.com/vi/5P-vxflLE0Q/hqdefault.jpg"
+               data-fb2="media/posters/dior.jpg">
+        </div>
+        <button class="open" type="button" aria-label="Play the Dior film, 20 seconds, with sound">
+          <span class="cue"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0 L10 6 L0 12 Z"/></svg>Play — 0:20</span>
+        </button>
+      </div>
+      <div class="credit">
+        <span class="who"><span class="idx">01</span><span class="client">Dior</span></span>
+        <span class="svc mono">Sound redesign, original music</span>
+      </div>
+    </article>
+
+    <article class="film">
+      <div class="frame" data-film="media/films/armani.mp4" data-title="Armani" data-index="02" data-svc="Sound redesign, original music" data-len="0:10">
+        <div class="media">
+          <video class="loop" src="media/loops/armani.mp4"
+                 muted loop playsinline preload="none" aria-hidden="true"></video>
+          <img class="still" src="https://img.youtube.com/vi/7hYlL46OreE/maxresdefault.jpg"
+               alt="" loading="lazy" decoding="async"
+               data-fb1="https://img.youtube.com/vi/7hYlL46OreE/hqdefault.jpg"
+               data-fb2="media/posters/armani.jpg">
+        </div>
+        <button class="open" type="button" aria-label="Play the Armani film, 10 seconds, with sound">
+          <span class="cue"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0 L10 6 L0 12 Z"/></svg>Play — 0:10</span>
+        </button>
+      </div>
+      <div class="credit">
+        <span class="who"><span class="idx">02</span><span class="client">Armani</span></span>
+        <span class="svc mono">Sound redesign, original music</span>
+      </div>
+    </article>
+
+    <article class="film">
+      <div class="frame" data-film="media/films/cellcosmet.mp4" data-title="Cellcosmet × Montreux Jazz" data-index="03" data-svc="Sound design, original music" data-len="0:24">
+        <div class="media">
+          <video class="loop" src="media/loops/cellcosmet.mp4"
+                 muted loop playsinline preload="none" aria-hidden="true"></video>
+          <img class="still" src="https://img.youtube.com/vi/mHZQgTa5ANM/maxresdefault.jpg"
+               alt="" loading="lazy" decoding="async"
+               data-fb1="https://img.youtube.com/vi/mHZQgTa5ANM/hqdefault.jpg"
+               data-fb2="media/posters/cellcosmet.jpg">
+        </div>
+        <button class="open" type="button" aria-label="Play the Cellcosmet and Montreux Jazz film, 24 seconds, with sound">
+          <span class="cue"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0 L10 6 L0 12 Z"/></svg>Play — 0:24</span>
+        </button>
+      </div>
+      <div class="credit">
+        <span class="who"><span class="idx">03</span><span class="client">Cellcosmet × Montreux Jazz</span></span>
+        <span class="svc mono">Sound design, original music</span>
+      </div>
+    </article>
+
+    <article class="film">
+      <div class="frame" data-film="media/films/olivia.mp4" data-title="3D Hair / Beauty" data-index="04" data-svc="Sound design, original music" data-len="0:23">
+        <div class="media">
+          <video class="loop" src="media/loops/olivia.mp4"
+                 muted loop playsinline preload="none" aria-hidden="true"></video>
+          <img class="still" src="https://img.youtube.com/vi/g-l4dpU-LbI/maxresdefault.jpg"
+               alt="" loading="lazy" decoding="async"
+               data-fb1="https://img.youtube.com/vi/g-l4dpU-LbI/hqdefault.jpg"
+               data-fb2="media/posters/olivia.jpg">
+        </div>
+        <button class="open" type="button" aria-label="Play the 3D hair and beauty film, 23 seconds, with sound">
+          <span class="cue"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0 L10 6 L0 12 Z"/></svg>Play — 0:23</span>
+        </button>
+      </div>
+      <div class="credit">
+        <span class="who"><span class="idx">04</span><span class="client">3D Hair / Beauty</span></span>
+        <span class="svc mono">Sound design, original music</span>
+      </div>
+    </article>
+
+    <article class="film">
+      <div class="frame" data-film="media/films/bruno.mp4" data-title="Bruno.co × Cure51" data-index="05" data-svc="Sound design, original music" data-len="2:15">
+        <div class="media">
+          <video class="loop" src="media/loops/bruno.mp4"
+                 muted loop playsinline preload="none" aria-hidden="true"></video>
+          <img class="still" src="https://img.youtube.com/vi/ZAuSODJfDBY/maxresdefault.jpg"
+               alt="" loading="lazy" decoding="async"
+               data-fb1="https://img.youtube.com/vi/ZAuSODJfDBY/hqdefault.jpg"
+               data-fb2="media/posters/bruno.jpg">
+        </div>
+        <button class="open" type="button" aria-label="Play the Bruno.co and Cure51 film, 2 minutes 15, with sound">
+          <span class="cue"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0 L10 6 L0 12 Z"/></svg>Play — 2:15</span>
+        </button>
+      </div>
+      <div class="credit">
+        <span class="who"><span class="idx">05</span><span class="client">Bruno.co × Cure51</span></span>
+        <span class="svc mono">Sound design, original music</span>
+      </div>
+    </article>
+
+    <article class="film">
+      <div class="frame" data-film="media/films/lol.mp4" data-title="League of Legends" data-index="06" data-svc="Sound redesign" data-len="4:20">
+        <div class="media">
+          <video class="loop" src="media/loops/lol.mp4"
+                 muted loop playsinline preload="none" aria-hidden="true"></video>
+          <img class="still" src="https://img.youtube.com/vi/XKqjMvoVZSc/maxresdefault.jpg"
+               alt="" loading="lazy" decoding="async"
+               data-fb1="https://img.youtube.com/vi/XKqjMvoVZSc/hqdefault.jpg"
+               data-fb2="media/posters/lol.jpg">
+        </div>
+        <button class="open" type="button" aria-label="Play the League of Legends film, 4 minutes 20, with sound">
+          <span class="cue"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0 L10 6 L0 12 Z"/></svg>Play — 4:20</span>
+        </button>
+      </div>
+      <div class="credit">
+        <span class="who"><span class="idx">06</span><span class="client">League of Legends</span></span>
+        <span class="svc mono">Sound redesign</span>
+      </div>
+    </article>
+
+  </section>
+
+  <!-- ------------------------------------------------------------- ABOUT -->
+  <section class="split" id="about">
+    <div class="shell">
+      <h2>About</h2>
+      <div class="body">
+        <p>Léo Convercy writes original music and designs sound for visual media.
+        He works with agencies, production companies and brands on advertising,
+        film, fashion and beauty — from the first sketch to the final mix.</p>
+        <p>Based in Tokyo, working with teams across Europe, Asia and North America.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- CONTACT -->
+  <section class="split" id="contact">
+    <div class="shell">
+      <h2>Contact</h2>
+      <div class="body">
+        <a class="mail" href="mailto:leeo.sd.music@gmail.com">leeo.sd.music@gmail.com</a>
+        <div class="also mono">
+          <a href="https://wa.me/33651586459" target="_blank" rel="noopener">WhatsApp</a>
+          <span>Tokyo, JST</span>
+        </div>
+        <p class="note">Briefs, references and deadlines welcome — a reply within one working day.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="shell mono">
+    <span>© <span id="yr">2026</span> Léo Convercy</span>
+    <span>Sound design &amp; music</span>
+  </div>
+</footer>
+
+<div class="stage" id="stage" hidden aria-modal="true" role="dialog" aria-label="Film">
+  <div class="stage-in">
+    <div class="screen"><video class="full" playsinline preload="auto"></video></div>
+    <div class="bar">
+      <div class="track" role="slider" tabindex="0" aria-label="Timeline">
+        <div class="rail"></div><div class="load"></div><div class="fill"></div>
+        <div class="grip"></div><div class="ghost"></div>
+      </div>
+      <div class="row mono">
+        <button type="button" data-act="play">Pause</button>
+        <span class="time">0:00 / 0:00</span>
+        <span class="sp"></span>
+        <button type="button" data-act="sound">Mute</button>
+        <button type="button" data-act="full">Full</button>
+        <button type="button" data-act="close">Close</button>
+      </div>
+    </div>
+    <div class="info mono">
+      <span class="who"><span class="idx"></span><span class="client"></span></span>
+      <span class="svc"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- menu (petits écrans) ---- */
+  var sheet = document.getElementById('sheet');
+  var btn   = document.getElementById('toggle');
+
+  function setSheet(open) {
+    sheet.dataset.open = open ? 'true' : 'false';
+    sheet.setAttribute('aria-hidden', open ? 'false' : 'true');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.textContent = open ? 'Close' : 'Menu';
+    document.body.classList.toggle('locked', open);
+  }
+
+  btn.addEventListener('click', function () { setSheet(sheet.dataset.open !== 'true'); });
+
+  /* ---- défilement compensé par la hauteur du bandeau ---- */
+  function jump(e) {
+    var target = document.querySelector(this.getAttribute('href'));
+    if (!target) { return; }
+    e.preventDefault();
+    if (sheet.dataset.open === 'true') { setSheet(false); }
+    var mast = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mast')) || 60;
+    var y = target.getBoundingClientRect().top + window.pageYOffset - mast - 8;
+    window.scrollTo({ top: Math.max(y, 0), behavior: reduce ? 'auto' : 'smooth' });
+  }
+  Array.prototype.forEach.call(
+    document.querySelectorAll('.nav a, [data-jump], .mark'),
+    function (a) { a.addEventListener('click', jump); }
+  );
+
+  /* ================================================================
+     LE LECTEUR — trois états
+       repos       : le cadre montre l'image fixe ; la boucle ne tourne
+                     qu'au survol de la souris
+       en avant    : un clic sort le film par-dessus la page, avec ses infos
+       plein écran : double clic ; un second double clic ramène « en avant »
+     Un clic à côté du film le renvoie à son état de repos.
+     ================================================================ */
+
+  var stage   = document.getElementById('stage');
+  var stageIn = stage.querySelector('.stage-in');
+  var vid     = stage.querySelector('.full');
+  var track   = stage.querySelector('.track');
+  var fill    = stage.querySelector('.fill');
+  var load    = stage.querySelector('.load');
+  var grip    = stage.querySelector('.grip');
+  var ghost   = stage.querySelector('.ghost');
+  var pp      = stage.querySelector('[data-act="play"]');
+  var snd     = stage.querySelector('[data-act="sound"]');
+  var fsBtn   = stage.querySelector('[data-act="full"]');
+  var shut    = stage.querySelector('[data-act="close"]');
+  var tRead   = stage.querySelector('.time');
+  var iIdx    = stage.querySelector('.info .idx');
+  var iClient = stage.querySelector('.info .client');
+  var iSvc    = stage.querySelector('.info .svc');
+
+  var current = null;          /* le cadre actuellement mis en avant */
+
+  function clock(sec) {
+    if (!isFinite(sec) || sec < 0) { sec = 0; }
+    var m = Math.floor(sec / 60), r = Math.floor(sec % 60);
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  function paint() {
+    var d = vid.duration || 0;
+    var pc = d ? (vid.currentTime / d) * 100 : 0;
+    fill.style.width = pc + '%';
+    grip.style.left  = pc + '%';
+    tRead.textContent = clock(vid.currentTime) + ' / ' + clock(d);
+    track.setAttribute('aria-valuetext', clock(vid.currentTime) + ' of ' + clock(d));
+  }
+
+  /* ---------- ouvrir, fermer ---------- */
+
+  function bringForward(frame) {
+    current = frame;
+
+    var loop = frame.querySelector('.loop');
+    if (loop) { loop.pause(); }
+    frame.classList.remove('peeking');
+
+    iIdx.textContent    = frame.dataset.index || '';
+    iClient.textContent = frame.dataset.title || '';
+    iSvc.textContent    = frame.dataset.svc || '';
+    vid.title = frame.dataset.title || 'Film';
+
+    fill.style.width = '0%';
+    grip.style.left  = '0%';
+    load.style.width = '0%';
+    tRead.textContent = '0:00 / ' + (frame.dataset.len || '0:00');
+
+    vid.src = frame.dataset.film;
+    vid.muted = false;
+    snd.textContent = 'Mute';
+
+    stage.hidden = false;
+    document.body.classList.add('locked');
+    /* un souffle pour que la transition parte de son état initial */
+    requestAnimationFrame(function () { stage.classList.add('on'); });
+
+    var pr = vid.play();
+    if (pr && pr.catch) {
+      pr.catch(function () {
+        vid.muted = true;
+        snd.textContent = 'Unmute';
+        vid.play().catch(function () {});
+      });
+    }
+    shut.focus({ preventScroll: true });
+  }
+
+  function sendBack() {
+    if (!current) { return; }
+    if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); }
+    vid.pause();
+    vid.removeAttribute('src');
+    vid.load();
+    stage.classList.remove('on');
+    document.body.classList.remove('locked');
+
+    var frame = current;
+    current = null;
+    window.setTimeout(function () {
+      if (!current) { stage.hidden = true; }
+    }, 260);
+
+    var opener = frame.querySelector('.open');
+    if (opener) { opener.focus({ preventScroll: true }); }
+  }
+
+  /* ---------- plein écran ---------- */
+
+  function screenful() {
+    if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); return; }
+    if (stage.requestFullscreen) { stage.requestFullscreen().catch(function () {}); }
+    else if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); }   /* iPhone */
+  }
+
+  /* ---------- lecture ---------- */
+
+  function toggle() {
+    if (vid.paused) { vid.play().catch(function () {}); } else { vid.pause(); }
+  }
+
+  var tap = null;
+  vid.addEventListener('click', function () {
+    if (tap) { return; }
+    tap = window.setTimeout(function () { tap = null; toggle(); }, 220);
+  });
+  vid.addEventListener('dblclick', function () {
+    if (tap) { window.clearTimeout(tap); tap = null; }
+    screenful();
+  });
+
+  pp.addEventListener('click', toggle);
+  fsBtn.addEventListener('click', screenful);
+  shut.addEventListener('click', sendBack);
+  snd.addEventListener('click', function () {
+    vid.muted = !vid.muted;
+    snd.textContent = vid.muted ? 'Unmute' : 'Mute';
+  });
+
+  vid.addEventListener('play',  function () { pp.textContent = 'Pause'; });
+  vid.addEventListener('pause', function () { pp.textContent = 'Play'; });
+  vid.addEventListener('ended', function () { pp.textContent = 'Replay'; });
+  vid.addEventListener('timeupdate', paint);
+  vid.addEventListener('loadedmetadata', paint);
+  vid.addEventListener('progress', function () {
+    var d = vid.duration || 0;
+    if (d && vid.buffered.length) {
+      load.style.width = (vid.buffered.end(vid.buffered.length - 1) / d) * 100 + '%';
+    }
+  });
+
+  /* un clic à côté du film : on sort du plein écran s'il est actif,
+     sinon on renvoie le film à sa place dans la page */
+  stage.addEventListener('click', function (e) {
+    if (stageIn.contains(e.target)) { return; }
+    if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); }
+    else { sendBack(); }
+  });
+
+  /* ---------- déplacement dans le film ---------- */
+
+  function ratio(e) {
+    var r = track.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width;
+    return x < 0 ? 0 : (x > 1 ? 1 : x);
+  }
+  function showGhost(e) {
+    var x = ratio(e);
+    ghost.style.left = (x * 100) + '%';
+    ghost.textContent = clock(x * (vid.duration || 0));
+  }
+  function seek(e) {
+    if (vid.duration) { vid.currentTime = ratio(e) * vid.duration; paint(); }
+    showGhost(e);
+  }
+
+  track.addEventListener('pointermove', function (e) {
+    if (!track.classList.contains('dragging')) { showGhost(e); }
+  });
+  track.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    track.classList.add('dragging');
+    var wasPlaying = !vid.paused;
+    if (wasPlaying) { vid.pause(); }
+    seek(e);
+    function move(ev) { seek(ev); }
+    function up() {
+      track.classList.remove('dragging');
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (wasPlaying) { vid.play().catch(function () {}); }
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  });
+  track.addEventListener('keydown', function (e) {
+    if (!vid.duration) { return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); vid.currentTime = Math.min(vid.currentTime + 5, vid.duration); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); vid.currentTime = Math.max(vid.currentTime - 5, 0); }
+    else if (e.key === 'Home') { e.preventDefault(); vid.currentTime = 0; }
+    else if (e.key === 'End') { e.preventDefault(); vid.currentTime = vid.duration; }
+  });
+
+  /* ---------- clavier ---------- */
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (sheet.dataset.open === 'true') { setSheet(false); return; }
+      /* en plein écran, Échap est déjà géré par le navigateur */
+      if (current && !document.fullscreenElement) { sendBack(); }
+      return;
+    }
+    if (!current) { return; }
+    var t = e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA') { return; }
+    if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); vid.currentTime = Math.min(vid.currentTime + 5, vid.duration || 0); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); vid.currentTime = Math.max(vid.currentTime - 5, 0); }
+    else if (e.key === 'f') { screenful(); }
+    else if (e.key === 'm') {
+      vid.muted = !vid.muted;
+      snd.textContent = vid.muted ? 'Unmute' : 'Mute';
+    }
+  });
+
+  /* ================================================================
+     LES CADRES AU REPOS
+     La boucle ne tourne que sous la souris. Sur écran tactile il n'y a
+     pas de survol : l'image fixe reste, et rien n'est téléchargé.
+     ================================================================ */
+
+  var canHover = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+
+  Array.prototype.forEach.call(document.querySelectorAll('.frame'), function (frame) {
+    var loop = frame.querySelector('.loop');
+    var opener = frame.querySelector('.open');
+
+    if (opener) {
+      opener.addEventListener('click', function () { bringForward(frame); });
+    }
+
+    if (!loop || !canHover) { return; }
+
+    frame.addEventListener('mouseenter', function () {
+      if (current) { return; }
+      frame.classList.add('peeking');
+      var pr = loop.play();
+      if (pr && pr.catch) { pr.catch(function () {}); }
+    });
+    frame.addEventListener('mouseleave', function () {
+      frame.classList.remove('peeking');
+      loop.pause();
+      /* la boucle repart du début au survol suivant ; l'image fixe
+         est déjà revenue par-dessus, donc le saut ne se voit pas */
+      try { loop.currentTime = 0; } catch (err) {}
+    });
+  });
+
+  /* l'image fixe vient de YouTube : deux replis si elle ne charge pas */
+  Array.prototype.forEach.call(document.querySelectorAll('.still'), function (img) {
+    function fallback() {
+      var next = img.dataset.fb1 || img.dataset.fb2;
+      if (!next) { return; }
+      if (img.dataset.fb1) { img.removeAttribute('data-fb1'); }
+      else { img.removeAttribute('data-fb2'); }
+      img.src = next;
+    }
+    img.addEventListener('error', fallback);
+    if (img.complete && img.naturalWidth === 0) { fallback(); }
+  });
+
+  /* ---- révélation : une seule fois par bloc, à l'entrée dans le champ ---- */
+  var blocks = document.querySelectorAll('.intro, .film, .split');
+  if (!('IntersectionObserver' in window)) {
+    Array.prototype.forEach.call(blocks, function (el) { el.classList.add('on'); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { en.target.classList.add('on'); io.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    Array.prototype.forEach.call(blocks, function (el) { io.observe(el); });
+  }
+
+  /* ---- dérive de l'image dans son cadre pendant le défilement ----
+     Quelques pixels seulement, et uniquement sur les cadres à l'écran.
+     Le défilement lui-même reste natif : aucune inertie artificielle. */
+  var DRIFT = 12;
+  var frames = Array.prototype.slice.call(document.querySelectorAll('.frame'));
+  var queued = false;
+
+  function drift() {
+    queued = false;
+    var vh = window.innerHeight;
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      var r = f.getBoundingClientRect();
+      if (r.bottom < -120 || r.top > vh + 120) { continue; }
+      var p = ((r.top + r.height / 2) - vh / 2) / (vh / 2 + r.height / 2);
+      p = p < -1 ? -1 : (p > 1 ? 1 : p);
+      f.style.setProperty('--dy', (p * DRIFT).toFixed(1) + 'px');
+    }
+  }
+  function queue() {
+    if (!queued) { queued = true; requestAnimationFrame(drift); }
+  }
+
+  if (!reduce) {
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', queue);
+    drift();
+  }
+
+  /* ---- l'heure qu'il est à Tokyo ---- */
+  (function () {
+    var box = document.getElementById('clock');
+    var out = document.getElementById('clockTime');
+    if (!box || !out) { return; }
+    var fmt;
+    try {
+      fmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Tokyo',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+      fmt.format(new Date());
+    } catch (e) {
+      return;            /* fuseau non géré : on laisse l'élément masqué */
+    }
+    function tick() { out.textContent = fmt.format(new Date()); }
+    tick();
+    box.hidden = false;
+    setInterval(tick, 1000);
+  })();
+
+  document.getElementById('yr').textContent = new Date().getFullYear();
+})();
+</script>
+
+</body>
+</html>
