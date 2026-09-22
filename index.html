@@ -7,9 +7,23 @@
 <meta name="description" content="Léo Convercy — composer and sound designer for visual media. Tokyo, worldwide. Advertising, film, fashion and beauty.">
 <meta property="og:title" content="Léo Convercy — Sound Design &amp; Music">
 <meta property="og:description" content="Composer and sound designer for visual media. Tokyo, worldwide.">
-<meta property="og:image" content="media/posters/dior.jpg">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Léo Convercy">
+<meta property="og:url" content="https://somonette.github.io/portfolio/">
+<meta property="og:image" content="https://somonette.github.io/portfolio/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Léo Convercy — composer and sound designer for visual media">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://somonette.github.io/portfolio/">
 <meta name="theme-color" content="#E2E7EB">
+
+<!-- Le monogramme. Le SVG sert partout où il est accepté : il reste net
+     quelle que soit la taille. Le PNG 32 est le repli des vieux navigateurs,
+     et l'apple-touch-icon sert quand on ajoute le site à l'écran d'accueil. -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <script>document.documentElement.classList.add('js');</script>
 
@@ -44,6 +58,7 @@
   --maxw:   1120px;
 
   --ease:   cubic-bezier(.2,.6,.3,1);
+  --glide:  cubic-bezier(.22,.68,.32,1);   /* ouverture et fermeture du film */
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
@@ -61,7 +76,8 @@ body{
   -moz-osx-font-smoothing:grayscale;
   overflow-x:hidden;
 }
-body.locked{ overflow:hidden; }
+body.locked{ overflow:hidden; padding-right:var(--sbw, 0px); }
+body.locked .mast{ padding-right:var(--sbw, 0px); }
 
 img{ display:block; max-width:100%; }
 a{ color:inherit; text-decoration:none; }
@@ -258,19 +274,22 @@ button{
   position:fixed; inset:0; z-index:60;
   display:grid; place-items:center;
   padding:clamp(14px, 3vw, 48px);
-  background:rgba(15,22,29,.94);
+  background:rgba(15,22,29,.97);
   opacity:0;
-  transition:opacity .25s var(--ease);
+  transition:opacity .34s var(--glide);
 }
 .stage[hidden]{ display:none; }
+/* pendant le fondu de sortie la couche est encore là : sans ça elle
+   continuerait d'intercepter les clics au-dessus de la page */
+.stage:not(.on){ pointer-events:none; }
 .stage.on{ opacity:1; }
 
 .stage-in{
   /* la largeur est plafonnée par la hauteur libre : le film tient toujours
      en entier, barre et infos comprises, sans bandes noires sur les côtés */
   width:min(1320px, 100%, calc((100vh - 190px) * 16 / 9));
-  transform:scale(.975);
-  transition:transform .32s var(--ease);
+  transform:scale(.965);
+  transition:transform .44s var(--glide);
 }
 .stage.on .stage-in{ transform:none; }
 
@@ -553,19 +572,20 @@ button{
 
   <!-- ------------------------------------------------------------- LES FILMS
        Un film = un <article class="film">. Pour en ajouter un :
-         1. déposer le film complet dans media/films/, une boucle muette de
-            6 s dans media/loops/ et une image fixe dans media/posters/,
-            tous trois sous le même nom ;
-         2. copier un bloc <article> entier et y remplacer les trois chemins
-            media/…, la durée affichée dans data-length et dans la pastille,
-            le numéro, le client et la prestation.
+         1. déposer le film complet dans media/films/ et une boucle muette
+            de 6 s dans media/loops/, sous le même nom ;
+         2. copier un bloc <article> entier, puis y remplacer les deux
+            chemins media/…, l'adresse de l'image fixe, et les attributs
+            data-title, data-index, data-svc et data-len du cadre — ce sont
+            eux qui alimentent les infos affichées pendant la lecture.
        Retirer un film : supprimer son bloc, puis renuméroter.
        L'ordre affiché est l'ordre des blocs.
 
-       Les boucles sont muettes et ne se chargent qu'en approchant de
-       l'écran ; elles se mettent en pause dès qu'elles en sortent. Un clic
-       remplace la boucle par le film complet avec le son, dans le même
-       cadre. Un seul film peut tourner à la fois.
+       Au repos le cadre montre l'image fixe. La boucle muette ne se charge
+       et ne tourne que sous la souris — donc jamais sur téléphone, où il
+       n'y a pas de survol. Un clic sort le film par-dessus la page ; les
+       images fixes viennent de YouTube, avec repli sur media/posters/ si
+       elles ne chargent pas.
   ------------------------------------------------------------------------- -->
   <section class="work shell" id="work">
 
@@ -815,6 +835,16 @@ button{
 
   var current = null;          /* le cadre actuellement mis en avant */
 
+  /* Bloquer le défilement fait disparaître la barre du navigateur et
+     décale toute la page. On mesure sa largeur et on la rend en padding. */
+  function lock(on) {
+    if (on) {
+      var sb = window.innerWidth - document.documentElement.clientWidth;
+      document.documentElement.style.setProperty('--sbw', sb + 'px');
+    }
+    document.body.classList.toggle('locked', on);
+  }
+
   function clock(sec) {
     if (!isFinite(sec) || sec < 0) { sec = 0; }
     var m = Math.floor(sec / 60), r = Math.floor(sec % 60);
@@ -842,21 +872,28 @@ button{
     iIdx.textContent    = frame.dataset.index || '';
     iClient.textContent = frame.dataset.title || '';
     iSvc.textContent    = frame.dataset.svc || '';
-    vid.title = frame.dataset.title || 'Film';
+    /* aria-label et pas title : title afficherait une infobulle
+       du navigateur au bout de deux secondes d'immobilité */
+    vid.setAttribute('aria-label', frame.dataset.title || 'Film');
 
     fill.style.width = '0%';
     grip.style.left  = '0%';
     load.style.width = '0%';
     tRead.textContent = '0:00 / ' + (frame.dataset.len || '0:00');
 
+    /* l'image fixe du cadre sert d'affiche : le film s'ouvre sur une image
+       au lieu d'un rectangle noir le temps que la vidéo se décode */
+    var still = frame.querySelector('.still');
+    vid.poster = still ? (still.currentSrc || still.src) : '';
     vid.src = frame.dataset.film;
     vid.muted = false;
     snd.textContent = 'Mute';
 
     stage.hidden = false;
-    document.body.classList.add('locked');
-    /* un souffle pour que la transition parte de son état initial */
-    requestAnimationFrame(function () { stage.classList.add('on'); });
+    lock(true);
+    void stage.offsetWidth;          /* on force le calcul : sinon la
+                                        transition part parfois déjà finie */
+    stage.classList.add('on');
 
     var pr = vid.play();
     if (pr && pr.catch) {
@@ -872,17 +909,23 @@ button{
   function sendBack() {
     if (!current) { return; }
     if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); }
-    vid.pause();
-    vid.removeAttribute('src');
-    vid.load();
-    stage.classList.remove('on');
-    document.body.classList.remove('locked');
 
     var frame = current;
     current = null;
+
+    /* le son se coupe tout de suite, mais l'image reste le temps du fondu :
+       vider la source ici ferait virer le film au noir avant de disparaître */
+    vid.pause();
+    stage.classList.remove('on');
+    lock(false);
+
     window.setTimeout(function () {
-      if (!current) { stage.hidden = true; }
-    }, 260);
+      if (current) { return; }       /* un autre film a été ouvert entre-temps */
+      vid.removeAttribute('src');
+      vid.removeAttribute('poster');
+      vid.load();
+      stage.hidden = true;
+    }, 460);
 
     var opener = frame.querySelector('.open');
     if (opener) { opener.focus({ preventScroll: true }); }
