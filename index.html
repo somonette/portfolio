@@ -276,7 +276,7 @@ button{
   padding:clamp(14px, 3vw, 48px);
   background:rgba(15,22,29,.97);
   opacity:0;
-  transition:opacity .34s var(--glide);
+  transition:opacity .55s var(--glide);
 }
 .stage[hidden]{ display:none; }
 /* pendant le fondu de sortie la couche est encore là : sans ça elle
@@ -287,11 +287,21 @@ button{
 .stage-in{
   /* la largeur est plafonnée par la hauteur libre : le film tient toujours
      en entier, barre et infos comprises, sans bandes noires sur les côtés */
-  width:min(1320px, 100%, calc((100vh - 190px) * 16 / 9));
-  transform:scale(.965);
-  transition:transform .44s var(--glide);
+  width:min(1320px, 100%, calc((100vh - 210px) * 16 / 9));
+  transform:scale(.94) translateY(14px);
+  transition:transform .78s var(--glide);
 }
 .stage.on .stage-in{ transform:none; }
+
+/* les trois étages arrivent l'un après l'autre : l'image d'abord,
+   puis le titre, puis la barre. */
+.stage-in > *{ opacity:0; transition:opacity .6s var(--glide); }
+.stage.on .stage-in > *{ opacity:1; }
+.stage.on .screen{ transition-delay:.04s; }
+.stage.on .info{ transition-delay:.26s; }
+.stage.on .bar{ transition-delay:.36s; }
+/* à la fermeture tout repart ensemble, sans traîner */
+.stage:not(.on) .stage-in > *{ transition-delay:0s; transition-duration:.3s; }
 
 .screen{
   position:relative;
@@ -308,10 +318,50 @@ button{
   background:#000;
 }
 
-.bar{ background:var(--bg); color:var(--ink); }
+/* Sur la couche « en avant » la barre n'est plus un bloc plein posé sur
+   l'image : elle est détachée de quelques pixels et flotte sur le fond,
+   en clair sur sombre comme le reste. */
+.stage .bar{
+  background:none;
+  color:var(--bg);
+  margin-top:clamp(9px, 1.2vw, 14px);
+}
+.stage .track .rail{ background:rgba(226,231,235,.20); }
+.stage .track .load{ background:rgba(226,231,235,.34); }
+.stage .track .fill,
+.stage .track .grip{ background:var(--bg); }
+.stage .track .ghost{ background:var(--bg); color:var(--ink); }
+.stage .row{ padding:0; }
+.stage .row .time{ color:rgba(226,231,235,.55); }
+
+/* le rail : 2 px au repos, 3 au survol — avant c'était 2 puis 4 */
+.stage .track{ height:19px; }
+.stage .track .rail,
+.stage .track .load,
+.stage .track .fill{ top:9px; }
+.stage .track .grip{ top:5px; height:9px; }
+.stage .track:hover .rail, .stage .track:hover .load, .stage .track:hover .fill,
+.stage .track.dragging .rail, .stage .track.dragging .load, .stage .track.dragging .fill{
+  height:3px; top:8px;
+}
+.stage .track:hover .grip, .stage .track.dragging .grip{ height:13px; top:3px; }
+
+/* le volume, même grammaire que la barre de lecture */
+.vol{
+  position:relative; flex:none;
+  width:clamp(44px, 6vw, 68px); height:19px;
+  cursor:pointer; touch-action:none;
+}
+.vol .vrail,
+.vol .vfill{ position:absolute; left:0; top:9px; height:2px; }
+.vol .vrail{ right:0; background:rgba(226,231,235,.20); }
+.vol .vfill{ width:100%; background:var(--bg); }
+.vol:hover .vrail, .vol:hover .vfill{ height:3px; top:8px; }
+/* sur téléphone le volume se règle avec les boutons de l'appareil */
+@media (max-width:719px){ .vol{ display:none; } }
 
 .stage .info{
-  margin-top:clamp(10px, 1.4vw, 16px);
+  margin-bottom:clamp(10px, 1.4vw, 16px);
   display:flex; justify-content:space-between; align-items:baseline;
   gap:4px 26px; flex-wrap:wrap;
   color:var(--bg);
@@ -750,6 +800,10 @@ button{
 
 <div class="stage" id="stage" hidden aria-modal="true" role="dialog" aria-label="Film">
   <div class="stage-in">
+    <div class="info mono">
+      <span class="who"><span class="idx"></span><span class="client"></span></span>
+      <span class="svc"></span>
+    </div>
     <div class="screen"><video class="full" playsinline preload="auto"></video></div>
     <div class="bar">
       <div class="track" role="slider" tabindex="0" aria-label="Timeline">
@@ -761,13 +815,13 @@ button{
         <span class="time">0:00 / 0:00</span>
         <span class="sp"></span>
         <button type="button" data-act="sound">Mute</button>
+        <div class="vol" role="slider" tabindex="0" aria-label="Volume"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+          <div class="vrail"></div><div class="vfill"></div>
+        </div>
         <button type="button" data-act="full">Full</button>
         <button type="button" data-act="close">Close</button>
       </div>
-    </div>
-    <div class="info mono">
-      <span class="who"><span class="idx"></span><span class="client"></span></span>
-      <span class="svc"></span>
     </div>
   </div>
 </div>
@@ -832,6 +886,11 @@ button{
   var iIdx    = stage.querySelector('.info .idx');
   var iClient = stage.querySelector('.info .client');
   var iSvc    = stage.querySelector('.info .svc');
+  var vol     = stage.querySelector('.vol');
+  var vfill   = stage.querySelector('.vfill');
+
+  var coarse  = window.matchMedia('(pointer: coarse)');
+  var lastVol = 1;
 
   var current = null;          /* le cadre actuellement mis en avant */
 
@@ -849,6 +908,23 @@ button{
     if (!isFinite(sec) || sec < 0) { sec = 0; }
     var m = Math.floor(sec / 60), r = Math.floor(sec % 60);
     return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  function paintVol() {
+    var v = vid.muted ? 0 : vid.volume;
+    vfill.style.width = (v * 100) + '%';
+    vol.setAttribute('aria-valuenow', Math.round(v * 100));
+    snd.textContent = (vid.muted || vid.volume === 0) ? 'Unmute' : 'Mute';
+  }
+
+  function setVol(x) {
+    x = x < 0 ? 0 : (x > 1 ? 1 : x);
+    /* iOS refuse de piloter le volume par le code : le réglage y est
+       sans effet, c'est pour ça que le curseur est masqué sur téléphone. */
+    vid.volume = x;
+    vid.muted = (x === 0);
+    if (x > 0) { lastVol = x; }
+    paintVol();
   }
 
   function paint() {
@@ -887,7 +963,8 @@ button{
     vid.poster = still ? (still.currentSrc || still.src) : '';
     vid.src = frame.dataset.film;
     vid.muted = false;
-    snd.textContent = 'Mute';
+    vid.volume = lastVol;
+    paintVol();
 
     stage.hidden = false;
     lock(true);
@@ -899,7 +976,7 @@ button{
     if (pr && pr.catch) {
       pr.catch(function () {
         vid.muted = true;
-        snd.textContent = 'Unmute';
+        paintVol();
         vid.play().catch(function () {});
       });
     }
@@ -909,6 +986,7 @@ button{
   function sendBack() {
     if (!current) { return; }
     if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); }
+    libereOrientation();
 
     var frame = current;
     current = null;
@@ -933,11 +1011,43 @@ button{
 
   /* ---------- plein écran ---------- */
 
+  function tourneEnPaysage() {
+    if (!coarse.matches) { return; }             /* seulement sur un appareil tactile */
+    var o = screen.orientation;
+    if (o && o.lock) { o.lock('landscape').catch(function () {}); }
+  }
+  function libereOrientation() {
+    var o = screen.orientation;
+    if (o && o.unlock) { try { o.unlock(); } catch (e) {} }
+  }
+
   function screenful() {
     if (document.fullscreenElement) { document.exitFullscreen().catch(function () {}); return; }
-    if (stage.requestFullscreen) { stage.requestFullscreen().catch(function () {}); }
-    else if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); }   /* iPhone */
+    if (stage.requestFullscreen) {
+      /* la rotation ne peut être demandée qu'une fois en plein écran */
+      stage.requestFullscreen().then(tourneEnPaysage).catch(function () {
+        if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); }
+      });
+    } else if (vid.webkitEnterFullscreen) {
+      vid.webkitEnterFullscreen();   /* iPhone : plein écran natif, rotation gérée par le système */
+    }
   }
+
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement) { libereOrientation(); }
+  });
+
+  /* Tourner le téléphone en paysage pendant qu'un film est ouvert le passe
+     en grand. Certains navigateurs exigent un geste de l'utilisateur pour
+     le plein écran : si c'est refusé, on ne fait rien de plus. */
+  var paysage = window.matchMedia('(orientation: landscape)');
+  function auQuartDeTour() {
+    if (!current || document.fullscreenElement) { return; }
+    if (!coarse.matches || !paysage.matches) { return; }
+    screenful();
+  }
+  if (paysage.addEventListener) { paysage.addEventListener('change', auQuartDeTour); }
+  else if (paysage.addListener) { paysage.addListener(auQuartDeTour); }
 
   /* ---------- lecture ---------- */
 
@@ -959,8 +1069,38 @@ button{
   fsBtn.addEventListener('click', screenful);
   shut.addEventListener('click', sendBack);
   snd.addEventListener('click', function () {
-    vid.muted = !vid.muted;
-    snd.textContent = vid.muted ? 'Unmute' : 'Mute';
+    if (vid.muted || vid.volume === 0) { setVol(lastVol || 1); }
+    else { vid.muted = true; paintVol(); }
+  });
+  vid.addEventListener('volumechange', paintVol);
+
+  /* le curseur de volume, même grammaire que la barre de lecture */
+  function volRatio(e) {
+    var r = vol.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width;
+    x = x < 0 ? 0 : (x > 1 ? 1 : x);
+    /* aimant aux deux bouts : sur 60 px de large, couper le son ou le
+       remettre à fond demanderait sinon une précision au pixel */
+    if (x < 0.05) { return 0; }
+    if (x > 0.95) { return 1; }
+    return x;
+  }
+  vol.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    setVol(volRatio(e));
+    function move(ev) { setVol(volRatio(ev)); }
+    function up() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  });
+  vol.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setVol((vid.muted ? 0 : vid.volume) + 0.1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setVol((vid.muted ? 0 : vid.volume) - 0.1); }
   });
 
   vid.addEventListener('play',  function () { pp.textContent = 'Pause'; });
@@ -1046,8 +1186,8 @@ button{
     else if (e.key === 'ArrowLeft')  { e.preventDefault(); vid.currentTime = Math.max(vid.currentTime - 5, 0); }
     else if (e.key === 'f') { screenful(); }
     else if (e.key === 'm') {
-      vid.muted = !vid.muted;
-      snd.textContent = vid.muted ? 'Unmute' : 'Mute';
+      if (vid.muted || vid.volume === 0) { setVol(lastVol || 1); }
+      else { vid.muted = true; paintVol(); }
     }
   });
 
