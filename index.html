@@ -89,6 +89,22 @@ button{
 }
 :focus-visible{ outline:1px solid var(--ink); outline-offset:3px; }
 
+/* Android et iOS posent un aplat bleu sur tout élément touché. C'est le
+   retour tactile par défaut du navigateur ; il est fait pour des pages qui
+   n'en proposent aucun. Ici chaque commande a le sien — le bouton de lecture
+   se creuse, la pastille s'inverse — alors on retire l'aplat, qui recouvrait
+   la vidéo entière d'un voile bleu à chaque appui. */
+html{ -webkit-tap-highlight-color:transparent; }
+
+/* Sur l'image et les commandes, le doigt ne doit ni sélectionner ni ouvrir
+   le menu contextuel : un appui maintenu sur la vidéo sert à régler le son,
+   pas à proposer « enregistrer l'image ». Le texte de la page, lui, reste
+   sélectionnable normalement. */
+.frame, .stage{
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
+}
+
 .shell{
   width:min(var(--maxw), 100% - var(--pad) * 2);
   margin-inline:auto;
@@ -390,6 +406,9 @@ button{
 }
 .screen .tap:hover i{ background:rgba(226,231,235,.34); transform:scale(1.05); }
 .screen .tap svg{ width:clamp(13px, 1.6vw, 18px); fill:var(--bg); transform:translateX(1px); }
+/* le retour tactile propre au site, en remplacement de l'aplat bleu retiré
+   plus haut : la pastille se remplit et se tasse légèrement sous le doigt */
+.screen .tap:active i{ background:rgba(226,231,235,.34); transform:scale(.94); }
 
 /* le niveau sonore, pendant le glissé du doigt */
 .screen .gauge{
@@ -1569,7 +1588,52 @@ button{
 
   vid.addEventListener('play',  function () { pp.textContent = 'Pause'; });
   vid.addEventListener('pause', function () { pp.textContent = 'Play'; });
-  vid.addEventListener('ended', function () { pp.textContent = 'Replay'; });
+  /* ---------- la fin d'un film ----------
+
+     Le générique fini, on ne laisse pas le visiteur devant une image figée :
+     le lecteur se referme de lui-même et la page se pose sur le film suivant,
+     prêt à être lancé. On ne l'enchaîne pas automatiquement : c'est un
+     portfolio, on regarde ce qu'on a choisi de regarder.
+
+     Le petit temps d'arrêt avant la fermeture laisse la dernière image
+     exister une seconde, au lieu de l'escamoter sur le dernier pixel. */
+  var APRES = 700;
+
+  function filmSuivant(frame) {
+    var tous = Array.prototype.slice.call(document.querySelectorAll('.frame'));
+    return tous[tous.indexOf(frame) + 1] || null;
+  }
+
+  function poseSur(frame) {
+    var r = frame.getBoundingClientRect();
+    var y = window.scrollY + r.top + r.height / 2 - window.innerHeight / 2;
+    y = Math.max(0, y);
+    if (reduce || !window.scrollTo) { window.scrollTo(0, y); return; }
+    try { window.scrollTo({ top: y, behavior: 'smooth' }); }
+    catch (e) { window.scrollTo(0, y); }
+  }
+
+  vid.addEventListener('ended', function () {
+    pp.textContent = 'Replay';
+    var ouvert  = current;                  /* avant la fermeture : elle l'efface */
+    var suivant = filmSuivant(ouvert);
+    window.setTimeout(function () {
+      /* refermé à la main entre-temps, ou un autre film ouvert depuis :
+         dans les deux cas ce n'est plus à nous de décider */
+      if (current !== ouvert) { return; }
+      sendBack();
+      /* on attend que la vignette ait repris sa place avant de faire glisser
+         la page : sinon le retour de l'image se jouerait pendant le défilement */
+      if (suivant) { window.setTimeout(function () { poseSur(suivant); }, RETOUR + 60); }
+    }, APRES);
+  });
+
+  /* Téléphone mis en veille, application passée à l'arrière-plan, onglet
+     changé : le son ne doit pas continuer dans le vide. On met en pause, et
+     on ne relance pas tout seul au retour — c'est au visiteur de décider. */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && current && !vid.paused) { vid.pause(); }
+  });
   vid.addEventListener('timeupdate', paint);
   vid.addEventListener('loadedmetadata', function () { paint(); caleLePont(); });
   vid.addEventListener('progress', function () {
