@@ -242,10 +242,19 @@ button{
 }
 .frame.peeking .still{ opacity:0; }
 
-/* pendant que son image voyage vers le centre, le cadre d'origine
-   laisse un trou : sinon on verrait la vignette en double */
-.frame.parti .media,
-.frame.parti .open{ visibility:hidden; }
+/* Pendant que son image voyage vers le centre, la vignette d'origine cesse
+   de peindre — sinon on la verrait en double.
+
+   C'est bien le cadre entier qui est masqué, et pas seulement son image :
+   le cadre a un fond sombre (le fond de secours pendant le chargement), et
+   ne masquer que son contenu laissait derrière le lecteur un rectangle noir
+   vide. Il passait inaperçu tant que le recentrage de la page le plaçait
+   pile derrière le film, mais il dépassait dès que ce recentrage ne pouvait
+   pas aller au bout — le cas du premier film, la page étant déjà en haut.
+
+   « visibility » et non « display » : la vignette garde sa place dans la
+   page, donc sa position reste mesurable pour l'animation de retour. */
+.frame.parti{ visibility:hidden; }
 
 /* le bouton d'ouverture couvre toute l'image, sous le volet */
 .open{
@@ -1349,16 +1358,25 @@ button{
   var paysage = window.matchMedia('(orientation: landscape)');
   function auQuartDeTour() {
     if (!current || !coarse.matches) { return; }
-    /* On NE demande PLUS le plein écran en tournant le téléphone.
-       La disposition « à plat » remplit déjà toute la fenêtre, et elle évite
-       deux ennuis du vrai plein écran : le bandeau système d'Android
-       (« pour quitter le plein écran, faites glisser depuis le haut »), que
-       la page n'a aucun moyen de masquer, et le retour au portrait qui
-       devenait capricieux. Le plein écran reste au bouton Full. */
-    majDisposition();
-    if (!paysage.matches && document.fullscreenElement && !verrouille) {
+    if (paysage.matches) {
+      /* Tourner le téléphone demande le vrai plein écran. Android affiche
+         alors son bandeau « faites glisser depuis le haut » : aucune page
+         web ne peut le supprimer. On l'accepte, parce que l'alternative —
+         remplir la fenêtre sans plein écran — laissait la barre d'adresse
+         et les onglets à l'écran, ce qui est plus gênant que le bandeau.
+
+         Pas de verrou d'orientation ici, contrairement au bouton FULL : le
+         geste vient du poignet, l'écran est déjà dans le bon sens, et un
+         verrou interdirait le retour au portrait juste en dessous. */
+      if (!document.fullscreenElement && stage.requestFullscreen) {
+        stage.requestFullscreen().catch(function () {});
+      }
+    } else if (document.fullscreenElement && !verrouille) {
+      /* retour au portrait : on ressort, sauf si le plein écran a été
+         demandé au bouton FULL, qui lui a verrouillé le paysage */
       document.exitFullscreen().catch(function () {});
     }
+    majDisposition();
   }
   if (paysage.addEventListener) { paysage.addEventListener('change', auQuartDeTour); }
   else if (paysage.addListener) { paysage.addListener(auQuartDeTour); }
