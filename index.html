@@ -322,6 +322,11 @@ button{
    vers la vignette qui doit rester lisible, pas le lecteur qui doit fondre */
 .stage.closing .stage-in{ opacity:1; transition:none; }
 
+/* Pendant ce retour, l'image prend le cadrage de la vignette : elle se zoome
+   légèrement et déborde donc du lecteur, exactement comme elle déborde de son
+   cadre dans la page. C'est la fenêtre qui la recoupe, comme le fait le cadre. */
+.stage.closing .screen{ overflow:hidden; }
+
 /* L'image ne surgit pas au centre : elle part de la vignette cliquée et
    grandit jusqu'à sa place. Déplacement et échelle sont calculés en
    JavaScript à partir des deux rectangles — c'est la seule façon d'aller
@@ -1062,6 +1067,40 @@ button{
     scr.style.transform = pose(ecart(cible, actuelle));
   }
 
+  /* Marge de débordement de l'image dans sa vignette. Doit rester égale au
+     « top:-12px / height:calc(100% + 24px) » de la feuille de style : c'est
+     cette marge qui donne à la dérive de quoi bouger sans montrer de bord. */
+  var MARGE = 12;
+
+  /* Faire coïncider les rectangles ne suffit pas : le lecteur montre le film
+     entier (contain, à 100 %), tandis que la vignette le montre recadré —
+     agrandi d'environ 11 % pour remplir un cadre plus haut de 2 × MARGE, et
+     décalé de la dérive en cours. Deux images différentes, donc, et c'est ce
+     petit saut que l'on voyait au moment où la vignette reprenait la main.
+
+     On calcule ici le cadrage exact de la vignette, pour que l'image du film
+     l'adopte pendant son retour et se pose dessus au pixel près. */
+  function cadrageVignette(frame, cible) {
+    var vw = vid.videoWidth,  vh = vid.videoHeight;
+    var bw = vid.offsetWidth, bh = vid.offsetHeight;
+    if (!vw || !vh || !bw || !bh || !cible.width || !cible.height) { return null; }
+
+    var contenu = Math.min(bw / vw, bh / vh);    /* « contain », côté lecteur */
+    var peinte  = vh * contenu;                  /* hauteur réellement peinte */
+    var s       = cible.width / bw;              /* échelle finale du retour   */
+    if (!peinte || !s) { return null; }
+
+    /* zoom à rattraper pour que l'image fasse la hauteur du cadre de la
+       vignette, marges comprises ; le débordement est recoupé par la fenêtre */
+    var zoom = (cible.height + 2 * MARGE) / (peinte * s);
+
+    var derive = parseFloat(getComputedStyle(frame).getPropertyValue('--dy')) || 0;
+
+    /* les deux valeurs sont exprimées dans le repère du lecteur, donc avant
+       l'échelle du retour : d'où la division par s */
+    return 'translateY(' + (derive / s).toFixed(2) + 'px) scale(' + zoom.toFixed(4) + ')';
+  }
+
   var coarse  = window.matchMedia('(pointer: coarse)');
 
   /* Niveau sonore au premier lancement. 0,6 sur une échelle linéaire
@@ -1275,7 +1314,21 @@ button{
        « closing » la maintient opaque pendant tout le trajet, alors que le
        voile, lui, s'efface en deux dixièmes de seconde */
     stage.classList.add('closing');
-    retrecirVers(frame.getBoundingClientRect());
+
+    var cible = frame.getBoundingClientRect();
+
+    /* en même temps que la fenêtre rétrécit, l'image adopte le cadrage de la
+       vignette : sans ça elle se posait bien au bon endroit, mais montrait
+       un cadrage légèrement différent, d'où le petit saut au relais */
+    var cadrage = cadrageVignette(frame, cible);
+    if (cadrage) {
+      vid.style.transition  = 'transform ' + RETOUR + 'ms ' + COURBE;
+      vid.style.transform   = cadrage;
+      pont.style.transition = vid.style.transition;
+      pont.style.transform  = cadrage;   /* si le fondu d'entrée n'est pas fini */
+    }
+
+    retrecirVers(cible);
     stage.classList.remove('on');
     lock(false);
 
@@ -1288,6 +1341,8 @@ button{
     window.setTimeout(function () {
       if (current) { return; }       /* un autre film a été ouvert entre-temps */
       stage.classList.remove('closing');
+      vid.style.transition = 'none';
+      vid.style.transform  = 'none';
       vid.removeAttribute('src');
       vid.removeAttribute('poster');
       vid.load();
