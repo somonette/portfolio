@@ -333,6 +333,16 @@ html{ -webkit-tap-highlight-color:transparent; }
 .open:hover .cue,
 .open:focus-visible .cue{ background:var(--ink); color:var(--bg); }
 
+/* Safari d'avant 2021 ne connaît pas « aspect-ratio ». Repli par la vieille
+   méthode du padding proportionnel, pour que les cadres gardent leur forme
+   au lieu de s'écraser à zéro. Rien à faire ailleurs : ces deux éléments sont
+   les seuls dont la hauteur dépend de la largeur. */
+@supports not (aspect-ratio: 16 / 9){
+  .frame, .screen{ height:0; padding-top:56.25%; }
+  .frame > *, .screen > *{ position:absolute; top:0; left:0; }
+  .stage.flat .screen{ height:100%; padding-top:0; }
+}
+
 /* ------------------------------------------------------------------ LECTEUR */
 
 /* Trois états : le cadre au repos, le film « en avant » par-dessus la page,
@@ -340,7 +350,10 @@ html{ -webkit-tap-highlight-color:transparent; }
 .stage{
   position:fixed; inset:0; z-index:60;
   display:grid; place-items:center;
-  padding:clamp(14px, 3vw, 48px);
+  /* Marge verticale réglée sur la HAUTEUR, horizontale sur la largeur. Une
+     seule valeur pour les quatre côtés donnait sa marge maximale là où la
+     hauteur est la plus rare : un portable large mais peu haut. */
+  padding:clamp(10px, 2.5vh, 40px) clamp(14px, 3vw, 48px);
 }
 .stage[hidden]{ display:none; }
 /* pendant le fondu de sortie la couche est encore là : sans ça elle
@@ -366,7 +379,20 @@ html{ -webkit-tap-highlight-color:transparent; }
   position:relative; z-index:1;   /* au-dessus du voile */
   /* la largeur est plafonnée par la hauteur libre : le film tient toujours
      en entier, barre et infos comprises, sans bandes noires sur les côtés */
-  width:min(1320px, 100%, calc((100vh - 210px) * 16 / 9));
+  /* La largeur est plafonnée par la hauteur libre, pour que le film tienne en
+     entier, titre et barre compris, sans bandes noires sur les côtés.
+
+     « dvh » et non « vh » : sur téléphone, vh compte la fenêtre barre d'adresse
+     rétractée, c'est-à-dire plus haute qu'elle ne l'est réellement au
+     chargement. Les commandes se retrouvaient sous le bord de l'écran. La
+     ligne « vh » qui précède reste pour les navigateurs qui ignorent dvh.
+
+     La réserve verticale s'adapte à la hauteur disponible au lieu d'être un
+     nombre fixe : sur un portable peu haut, 210 px de réserve mangeaient
+     l'image pour rien. */
+  --reserve: clamp(150px, 17vh, 210px);
+  width:min(1320px, 100%, calc((100vh  - var(--reserve)) * 16 / 9));
+  width:min(1320px, 100%, calc((100dvh - var(--reserve)) * 16 / 9));
   opacity:0;
   transition:opacity .22s var(--glide);
 }
@@ -506,6 +532,9 @@ html{ -webkit-tap-highlight-color:transparent; }
 .vol:hover .vrail, .vol:hover .vfill{ height:3px; top:8px; }
 /* sur téléphone le volume se règle avec les boutons de l'appareil */
 @media (max-width:719px){ .vol{ display:none; } }
+/* le système refuse de laisser la page régler le volume (iOS) : on retire
+   le curseur plutôt que d'afficher une commande sans effet */
+.stage.sans-volume .vol{ display:none; }
 
 .stage .info{
   margin-bottom:clamp(10px, 1.4vw, 16px);
@@ -1034,6 +1063,16 @@ html{ -webkit-tap-highlight-color:transparent; }
 (function () {
   "use strict";
 
+  /* Filet de sécurité. Les textes et les vignettes arrivent en fondu, ce qui
+     suppose que ce script tourne : la classe « js » les masque au départ. Si
+     une seule instruction échouait — navigateur trop ancien, fonction
+     absente — tout ce qui suit serait abandonné et la page resterait à moitié
+     vide, ce qui est le pire résultat possible.
+
+     On enveloppe donc l'ensemble : à la moindre erreur, on retire « js » et la
+     page se replie sur sa version sans script, entièrement lisible. */
+  try {
+
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---- menu (petits écrans) ---- */
@@ -1230,6 +1269,25 @@ html{ -webkit-tap-highlight-color:transparent; }
     snd.textContent = (vid.muted || vid.volume === 0) ? 'Unmute' : 'Mute';
   }
 
+  /* Certains systèmes — iOS au premier chef — refusent qu'une page règle le
+     volume : l'affectation est acceptée sans effet, seuls les boutons de
+     l'appareil font foi. Plutôt que de le deviner au nom du navigateur, on le
+     demande à la machine : on écrit une valeur, on la relit. Si elle n'a pas
+     pris, on retire le curseur et le glissé du doigt — une commande qui ne
+     commande rien est pire que pas de commande. */
+  var volPilotable = null;
+
+  function testeVolume() {
+    if (volPilotable !== null) { return volPilotable; }
+    var avant = vid.volume;
+    var essai = avant > 0.5 ? 0.25 : 0.75;
+    try { vid.volume = essai; } catch (e) {}
+    volPilotable = Math.abs(vid.volume - essai) < 0.01;
+    try { vid.volume = avant; } catch (e) {}
+    stage.classList.toggle('sans-volume', !volPilotable);
+    return volPilotable;
+  }
+
   function setVol(x) {
     x = x < 0 ? 0 : (x > 1 ? 1 : x);
     /* iOS refuse de piloter le volume par le code : le réglage y est
@@ -1399,7 +1457,26 @@ html{ -webkit-tap-highlight-color:transparent; }
 
     retrecirVers(cible);
     stage.classList.remove('on');
-    lock(false);
+
+    /* Le déverrouillage du défilement n'a PAS lieu ici, mais une fois le
+       lecteur rangé. Raison :
+
+       verrouiller le défilement masque la barre de défilement. Sur un système
+       où cette barre occupe une vraie place — Windows, 15 px — la fenêtre
+       s'élargit d'autant, et avec elle le calque du lecteur, qui est en
+       position fixe : 639 px déverrouillé, 654 px verrouillé. Le contenu de
+       la page, lui, ne bouge pas : la variable --sbw le compense. Le calque
+       fixe, lui, n'est compensé par rien, puisqu'il se cale sur la fenêtre
+       et non sur le contenu.
+
+       Or la trajectoire du retour vient d'être calculée dans l'état
+       verrouillé. Déverrouiller maintenant déplacerait le point d'arrivée de
+       la moitié de cette largeur : l'image se poserait 7,5 px à gauche de sa
+       vignette, d'où un saut vers la droite au moment du relais. Mesuré sur
+       Windows, et ramené à 0 en gardant le verrou.
+
+       En déverrouillant une fois le lecteur caché, toute l'animation se joue
+       dans une seule et même géométrie. */
 
     /* La vignette redevient visible à l'instant précis où son image se pose
        dessus — ni avant (on verrait les deux à la fois), ni après (on verrait
@@ -1420,6 +1497,7 @@ html{ -webkit-tap-highlight-color:transparent; }
       scr.style.transition = 'none';
       scr.style.transform = 'none';
       stage.hidden = true;
+      lock(false);          /* après stage.hidden : plus rien à l'écran ne bouge */
     }, RETOUR + 40);
 
     var opener = frame.querySelector('.open');
@@ -1572,6 +1650,7 @@ html{ -webkit-tap-highlight-color:transparent; }
 
   scr.addEventListener('touchstart', function (e) {
     if (!stage.classList.contains('flat') || e.touches.length !== 1) { doigtY = null; return; }
+    if (volPilotable === false) { doigtY = null; return; }   /* iOS : sans effet */
     doigtY = e.touches[0].clientY;
     volDepart = vid.muted ? 0 : vid.volume;
     aGlisse = false;
@@ -1658,9 +1737,13 @@ html{ -webkit-tap-highlight-color:transparent; }
     var r = frame.getBoundingClientRect();
     var y = window.scrollY + r.top + r.height / 2 - window.innerHeight / 2;
     y = Math.max(0, y);
-    if (reduce || !window.scrollTo) { window.scrollTo(0, y); return; }
-    try { window.scrollTo({ top: y, behavior: 'smooth' }); }
-    catch (e) { window.scrollTo(0, y); }
+    /* Le défilement doux se demande par un objet d'options. Les navigateurs
+       qui ne le connaissent pas ne lèvent pas d'erreur : ils lisent l'objet
+       comme une coordonnée et sautent en haut de la page. On vérifie donc la
+       capacité au lieu d'espérer une exception. */
+    var doux = 'scrollBehavior' in document.documentElement.style;
+    if (reduce || !doux) { window.scrollTo(0, y); return; }
+    window.scrollTo({ top: y, behavior: 'smooth' });
   }
 
   vid.addEventListener('ended', function () {
@@ -1685,7 +1768,7 @@ html{ -webkit-tap-highlight-color:transparent; }
     if (document.hidden && current && !vid.paused) { vid.pause(); }
   });
   vid.addEventListener('timeupdate', paint);
-  vid.addEventListener('loadedmetadata', function () { paint(); caleLePont(); });
+  vid.addEventListener('loadedmetadata', function () { paint(); caleLePont(); testeVolume(); });
   vid.addEventListener('progress', function () {
     var d = vid.duration || 0;
     if (d && vid.buffered.length) {
@@ -1879,6 +1962,11 @@ html{ -webkit-tap-highlight-color:transparent; }
   })();
 
   document.getElementById('yr').textContent = new Date().getFullYear();
+
+  } catch (erreur) {
+    /* la page redevient sa version sans script : tout est visible */
+    document.documentElement.classList.remove('js');
+  }
 })();
 </script>
 
