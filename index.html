@@ -3,6 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- =====================================================================
+     PORTFOLIO DE LÉO CONVERCY — compositeur et sound designer, Tokyo.
+
+     Tout le site tient dans ce fichier : structure, styles et script. Il n'y
+     a ni dépendance, ni étape de construction, ni serveur. On ouvre le
+     fichier, on modifie, on enregistre, on recharge le navigateur.
+
+     À LIRE D'ABORD SI VOUS ÊTES UNE IA : le fichier AGENTS.md, à côté de
+     celui-ci, donne l'architecture, les règles à ne pas casser et la marche
+     à suivre pour les modifications courantes. Ne rien réécrire en
+     profondeur sans l'avoir lu : plusieurs réglages qui semblent arbitraires
+     tiennent ensemble et leur raison d'être est documentée.
+
+     PLAN DU FICHIER — chercher ces repères (Ctrl+F) :
+
+       CONTENU : MÉTADONNÉES ......  titre, description, partage sur les réseaux
+       CONTENU : EN-TÊTE ..........  nom, menu
+       CONTENU : INTRO ............  les deux lignes d'accroche
+       CONTENU : LES FILMS ........  les six films — titres, services, durées
+       CONTENU : ABOUT ............  le texte de présentation
+       CONTENU : CONTACT ..........  adresse e-mail, WhatsApp
+       CONTENU : PIED DE PAGE .....  mention finale
+       PALETTE ....................  couleurs et typographie (début du <style>)
+       LECTEUR ....................  la fenêtre de lecture vidéo (styles)
+       SCRIPT .....................  tout le comportement
+
+     Les sept repères « CONTENU » suffisent pour la mise à jour des textes.
+     Le reste n'a pas besoin d'être touché pour changer un mot.
+     ===================================================================== -->
+<!-- CONTENU : MÉTADONNÉES — ce qui s'affiche dans l'onglet, dans Google et
+     dans l'aperçu quand on partage le lien. L'image d'aperçu est og.jpg
+     (1200 × 630). Si l'adresse du site change, corriger les trois URL. -->
 <title>Léo Convercy — Sound Design &amp; Music</title>
 <meta name="description" content="Léo Convercy — composer and sound designer for visual media. Tokyo, worldwide. Advertising, film, fashion and beauty.">
 <meta property="og:title" content="Léo Convercy — Sound Design &amp; Music">
@@ -42,6 +75,10 @@
    Pour modifier les films : voir « LES FILMS » dans le <body>.
    ========================================================================== */
 
+/* ------------------------------------------------------------------ PALETTE
+   Toutes les couleurs et la typographie partent d'ici. Changer une valeur
+   de :root la propage partout — aucune couleur n'est écrite en dur
+   ailleurs dans la feuille de style. */
 :root{
   /* Palette « gris bleuté » : un gris franchement tiré vers le bleu.
      Il refroidit la page, ce qui fait ressortir les rouges et les roses
@@ -731,6 +768,8 @@ html{ -webkit-tap-highlight-color:transparent; }
 
 <body>
 
+<!-- CONTENU : EN-TÊTE — le nom, les trois entrées de menu (répétées plus bas
+     dans le panneau mobile : les modifier aux deux endroits). -->
 <header class="mast">
   <div class="shell">
     <a href="#top" class="mark">Léo Convercy</a>
@@ -758,7 +797,8 @@ html{ -webkit-tap-highlight-color:transparent; }
 
 <main id="top">
 
-  <!-- ------------------------------------------------------------- INTRO -->
+  <!-- CONTENU : INTRO — les deux lignes d'accroche, la première chose que
+       l'on lit. Les garder courtes : elles sont composées en grand. -->
   <section class="intro" id="intro">
     <div class="shell">
       <span class="role">Composer &amp; sound designer for visual media</span>
@@ -766,7 +806,7 @@ html{ -webkit-tap-highlight-color:transparent; }
     </div>
   </section>
 
-  <!-- ------------------------------------------------------------- LES FILMS
+  <!-- CONTENU : LES FILMS
        Un film = un <article class="film">. Pour en ajouter un :
          1. déposer le film complet dans media/films/ et une boucle muette
             de 6 s dans media/loops/, sous le même nom ;
@@ -907,7 +947,7 @@ html{ -webkit-tap-highlight-color:transparent; }
 
   </section>
 
-  <!-- ------------------------------------------------------------- ABOUT -->
+  <!-- CONTENU : ABOUT — le texte de présentation. Deux paragraphes courts. -->
   <section class="split" id="about">
     <div class="shell">
       <h2>About</h2>
@@ -920,7 +960,8 @@ html{ -webkit-tap-highlight-color:transparent; }
     </div>
   </section>
 
-  <!-- ------------------------------------------------------------- CONTACT -->
+  <!-- CONTENU : CONTACT — adresse e-mail (à changer aux DEUX endroits de la
+       ligne : dans le lien mailto: et dans le texte affiché) et WhatsApp. -->
   <section class="split" id="contact">
     <div class="shell">
       <h2>Contact</h2>
@@ -937,6 +978,7 @@ html{ -webkit-tap-highlight-color:transparent; }
 
 </main>
 
+<!-- CONTENU : PIED DE PAGE — l'année se met à jour toute seule. -->
 <footer class="foot">
   <div class="shell mono">
     <span>© <span id="yr">2026</span> Léo Convercy</span>
@@ -980,6 +1022,14 @@ html{ -webkit-tap-highlight-color:transparent; }
   </div>
 </div>
 
+<!-- ------------------------------------------------------------------ SCRIPT
+     Un seul bloc, sans dépendance, sans étape de construction. Ordre :
+     menu et défilement, puis le lecteur (ouverture, fermeture, animations),
+     puis les commandes, puis les petits effets de page. Chaque partie est
+     annoncée par un bandeau « ---------- … ---------- ».
+     Les choix non évidents sont commentés sur place : les lire avant de
+     les modifier, plusieurs corrigent un défaut précis.
+----------------------------------------------------------------------- -->
 <script>
 (function () {
   "use strict";
