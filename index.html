@@ -288,21 +288,39 @@ button{
   position:fixed; inset:0; z-index:60;
   display:grid; place-items:center;
   padding:clamp(14px, 3vw, 48px);
-  background:rgba(15,22,29,.97);
-  opacity:0;
-  transition:opacity .22s var(--glide);
 }
 .stage[hidden]{ display:none; }
 /* pendant le fondu de sortie la couche est encore là : sans ça elle
    continuerait d'intercepter les clics au-dessus de la page */
 .stage:not(.on){ pointer-events:none; }
-.stage.on{ opacity:1; }
+
+/* Le voile sombre est une couche à lui, et non le fond du lecteur.
+
+   C'est ce qui permet aux deux de ne pas avoir la même durée : à la
+   fermeture, le voile s'efface vite — la page revient sans se faire
+   attendre — pendant que l'image, elle, reste pleinement peinte jusqu'à ce
+   qu'elle se pose dans sa vignette. Tant que les deux étaient solidaires,
+   l'image s'évanouissait à mi-parcours et laissait un trou dans la page. */
+.veil{
+  position:absolute; inset:0;
+  background:rgba(15,22,29,.97);
+  opacity:0;
+  transition:opacity .22s var(--glide);
+}
+.stage.on .veil{ opacity:1; }
 
 .stage-in{
+  position:relative; z-index:1;   /* au-dessus du voile */
   /* la largeur est plafonnée par la hauteur libre : le film tient toujours
      en entier, barre et infos comprises, sans bandes noires sur les côtés */
   width:min(1320px, 100%, calc((100vh - 210px) * 16 / 9));
+  opacity:0;
+  transition:opacity .22s var(--glide);
 }
+.stage.on .stage-in{ opacity:1; }
+/* pendant la fermeture l'image garde toute son opacité : c'est le retour
+   vers la vignette qui doit rester lisible, pas le lecteur qui doit fondre */
+.stage.closing .stage-in{ opacity:1; transition:none; }
 
 /* L'image ne surgit pas au centre : elle part de la vignette cliquée et
    grandit jusqu'à sa place. Déplacement et échelle sont calculés en
@@ -903,6 +921,7 @@ button{
 </footer>
 
 <div class="stage" id="stage" hidden aria-modal="true" role="dialog" aria-label="Film">
+  <div class="veil" id="veil"></div>
   <div class="stage-in">
     <div class="info mono">
       <span class="who"><span class="idx"></span><span class="client"></span></span>
@@ -982,6 +1001,7 @@ button{
      ================================================================ */
 
   var stage   = document.getElementById('stage');
+  var veil    = document.getElementById('veil');
   var stageIn = stage.querySelector('.stage-in');
   var vid     = stage.querySelector('.full');
   var track   = stage.querySelector('.track');
@@ -1174,13 +1194,14 @@ button{
        sauter pendant les deux dixièmes de seconde du fondu. Il finit de
        s'opacifier ensuite, ce qui garde la douceur sans montrer le saut. */
     stage.hidden = false;
-    stage.style.opacity = '.9';
+    stage.classList.remove('closing');
+    veil.style.opacity = '.9';
     void stage.offsetWidth;
     window.scrollTo(0, Math.max(0, recentre));
     lock(true);
     majDisposition();
     void stage.offsetWidth;
-    stage.style.opacity = '';        /* on rend la main à la feuille de style */
+    veil.style.opacity = '';         /* on rend la main à la feuille de style */
     stage.classList.add('on');
     grandirDepuis(depart);
     frame.classList.add('parti');
@@ -1250,14 +1271,23 @@ button{
     jauge.classList.remove('on');
     clearTimeout(minuteur);
 
-    /* l'image refait le chemin en sens inverse, vers sa vignette */
+    /* l'image refait le chemin en sens inverse, vers sa vignette.
+       « closing » la maintient opaque pendant tout le trajet, alors que le
+       voile, lui, s'efface en deux dixièmes de seconde */
+    stage.classList.add('closing');
     retrecirVers(frame.getBoundingClientRect());
     stage.classList.remove('on');
     lock(false);
 
+    /* La vignette redevient visible à l'instant précis où son image se pose
+       dessus — ni avant (on verrait les deux à la fois), ni après (on verrait
+       un trou). C'est le seul réglage qui compte ici, il est donc séparé du
+       rangement, qui peut attendre. */
+    window.setTimeout(function () { frame.classList.remove('parti'); }, RETOUR);
+
     window.setTimeout(function () {
-      frame.classList.remove('parti');
       if (current) { return; }       /* un autre film a été ouvert entre-temps */
+      stage.classList.remove('closing');
       vid.removeAttribute('src');
       vid.removeAttribute('poster');
       vid.load();
